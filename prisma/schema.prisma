@@ -1,0 +1,509 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                                                        Int                    @id @default(autoincrement())
+  userId                                                    String                 @unique @default(uuid()) @map("user_id") @db.Uuid
+  name                                                      String                 @map("name") @db.VarChar(200)
+  phone                                                     String                 @unique @map("phone") @db.VarChar(20)
+  passwordHash                                              String?                @map("password_hash") @db.VarChar(255)
+  isActive                                                  Boolean                @default(true) @map("is_active")
+  createdAt                                                 DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                                                 DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+  auditEntries                                              AuditEntry[]
+  authSessions                                              AuthSession[]
+  reviewedRegistrations                                     BusinessRegistration[] @relation("RegistrationReviewer")
+  registrations                                             BusinessRegistration[] @relation("RegistrationSubmitter")
+  activatedSubscriptions                                    BusinessSubscription[] @relation("SubscriptionActivator")
+  ownedBusinesses                                           Business[]             @relation("BusinessOwner")
+  checkoutRequests                                          CheckoutRequest[]
+  document_categories_document_categories_created_byTousers document_categories[]  @relation("document_categories_created_byTousers")
+  document_categories_document_categories_updated_byTousers document_categories[]  @relation("document_categories_updated_byTousers")
+  notifications                                             Notification[]
+  parkingSessions                                           ParkingSession[]
+  staffMembers                                              StaffMember[]
+  reviewedStaffRequests                                     StaffRequest[]         @relation("StaffReviewer")
+  staffRequests                                             StaffRequest[]         @relation("StaffRequester")
+  subscriptionRequests                                      SubscriptionRequest[]  @relation("SubscriptionRequester")
+  reviewedSubRequests                                       SubscriptionRequest[]  @relation("SubscriptionReviewer")
+  userRoles                                                 UserRole[]
+  vehicles                                                  Vehicle[]
+  resolvedFlags                                             StaffFlag[] @relation("FlagResolver")
+
+  @@map("users")
+}
+
+model Role {
+  id          Int        @id @default(autoincrement())
+  roleId      String     @unique @default(uuid()) @map("role_id") @db.Uuid
+  code        String     @unique @map("code") @db.VarChar(50)
+  displayName String     @map("display_name") @db.VarChar(100)
+  sortOrder   Int        @default(0) @map("sort_order") @db.SmallInt
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @map("user_id")
+  roleId     Int       @map("role_id")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  userRoleId String    @unique @default(dbgenerated("gen_random_uuid()")) @map("user_role_id") @db.Uuid
+  businessId Int?      @map("business_id")
+  isActive   Boolean   @default(true) @map("is_active")
+  business   Business? @relation(fields: [businessId], references: [id])
+  role       Role      @relation(fields: [roleId], references: [id])
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, businessId])
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model AuthSession {
+  id            Int       @id @default(autoincrement())
+  authSessionId String    @unique @default(uuid()) @map("auth_session_id") @db.Uuid
+  userId        Int       @map("user_id")
+  tokenHash     String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastUsedAt    DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(6)
+  userAgent     String?   @map("user_agent")
+  ipAddress     String?   @map("ip_address") @db.VarChar(45)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([userId, revokedAt])
+  @@map("auth_sessions")
+}
+
+model Vehicle {
+  id              Int              @id @default(autoincrement())
+  vehicleId       String           @unique @default(uuid()) @map("vehicle_id") @db.Uuid
+  userId          Int              @map("user_id")
+  vehicleNumber   String           @map("vehicle_number") @db.VarChar(20)
+  vehicleType     String           @map("vehicle_type") @db.VarChar(20)
+  nickname        String?          @map("nickname") @db.VarChar(100)
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  parkingSessions ParkingSession[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vehicleNumber])
+  @@map("vehicles")
+}
+
+model Business {
+  id                   Int                   @id @default(autoincrement())
+  businessId           String                @unique @default(uuid()) @map("business_id") @db.Uuid
+  name                 String                @map("name") @db.VarChar(200)
+  ownerId              Int                   @map("owner_id")
+  status               String                @default("PENDING") @map("status") @db.VarChar(20)
+  isDemo               Boolean               @default(false) @map("is_demo")
+  deletedAt            DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  auditEntries         AuditEntry[]
+  registrations        BusinessRegistration? @relation("RegistrationResult")
+  subscription         BusinessSubscription?
+  owner                User                  @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: NoAction)
+  spaces               Space[]
+  staffInvitations     StaffInvitation[]
+  staffMembers         StaffMember[]
+  staffRequests        StaffRequest[]
+  subscriptionRequests SubscriptionRequest[]
+  userRoles            UserRole[]
+  staffFlags           StaffFlag[]
+
+  @@map("businesses")
+}
+
+model Space {
+  id               Int               @id @default(autoincrement())
+  spaceId          String            @unique @default(uuid()) @map("space_id") @db.Uuid
+  businessId       Int               @map("business_id")
+  name             String            @map("name") @db.VarChar(200)
+  address          String?           @map("address")
+  latitude         Decimal?          @map("latitude") @db.Decimal(10, 8)
+  longitude        Decimal?          @map("longitude") @db.Decimal(11, 8)
+  spaceType        String?           @map("space_type") @db.VarChar(100)
+  isActive         Boolean           @default(true) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  auditEntries     AuditEntry[]
+  checkoutRequests CheckoutRequest[]
+  sessions         ParkingSession[]
+  pricingRules     PricingRule[]
+  business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staffMembers     StaffMember[]
+  staffRequests    StaffRequest[]
+  currentPricingVersionId  Int?                   @map("current_pricing_version_id")
+  currentPricingVersion    PricingFormulaVersion? @relation("SpaceCurrentVersion", fields: [currentPricingVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pricingVersions          PricingFormulaVersion[] @relation("SpaceAllVersions")
+
+  @@map("spaces")
+}
+
+model PricingRule {
+  id                  Int      @id @default(autoincrement())
+  pricingRuleId       String   @unique @default(uuid()) @map("pricing_rule_id") @db.Uuid
+  spaceId             Int      @map("space_id")
+  vehicleType         String   @map("vehicle_type") @db.VarChar(20)
+  durationFromMinutes Int      @map("duration_from_minutes")
+  durationToMinutes   Int?     @map("duration_to_minutes")
+  amountPaise         Int      @map("amount_paise")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  space               Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@map("pricing_rules")
+}
+
+model PricingFormulaVersion {
+  id                      Int              @id @default(autoincrement())
+  pricingFormulaVersionId String           @unique @default(uuid()) @map("pricing_formula_version_id") @db.Uuid
+  spaceId                 Int              @map("space_id")
+  rules                   Json             @map("rules")
+  formulaType              String    @default("FLAT_SLAB") @map("formula_type") @db.VarChar(20)
+  cycleDurationHours       Float?    @map("cycle_duration_hours")
+  overflowIntervalMinutes  Int?      @map("overflow_interval_minutes")
+  overflowAmountPaise      Int?      @map("overflow_amount_paise")
+  createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  space                   Space            @relation("SpaceAllVersions", fields: [spaceId], references: [id], onDelete: Cascade)
+  currentForSpaces        Space[]          @relation("SpaceCurrentVersion")
+  sessions                ParkingSession[]
+
+  @@map("pricing_formula_versions")
+}
+
+model StaffMember {
+  id                 Int               @id @default(autoincrement())
+  staffMemberId      String            @unique @default(uuid()) @map("staff_member_id") @db.Uuid
+  userId             Int               @map("user_id")
+  businessId         Int               @map("business_id")
+  spaceId            Int?              @map("space_id")
+  status             String            @default("PENDING") @map("status") @db.VarChar(20)
+  isOnDuty           Boolean           @default(false) @map("is_on_duty")
+  dutyStartedAt      DateTime?         @map("duty_started_at") @db.Timestamptz(6)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  approvedCheckouts  CheckoutRequest[] @relation("ApprovedBy")
+  checkedInSessions  ParkingSession[]  @relation("CheckedInBy")
+  checkedOutSessions ParkingSession[]  @relation("CheckedOutBy")
+  business           Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  space              Space?            @relation(fields: [spaceId], references: [id])
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  notes    StaffNote[]
+  flags    StaffFlag[]
+
+  @@unique([userId, businessId])
+  @@map("staff_members")
+}
+
+model StaffNote {
+  id            Int         @id @default(autoincrement())
+  staffNoteId   String      @unique @default(uuid()) @map("staff_note_id") @db.Uuid
+  staffMemberId Int         @map("staff_member_id")
+  body          String
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  staffMember   StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+
+  @@map("staff_notes")
+}
+
+model StaffFlag {
+  id            Int          @id @default(autoincrement())
+  staffFlagId   String       @unique @default(uuid()) @map("staff_flag_id") @db.Uuid
+  staffMemberId Int          @map("staff_member_id")
+  businessId    Int          @map("business_id")
+  type          String       @map("type") @db.VarChar(30)
+  description   String       @map("description")
+  status        String       @default("OPEN") @map("status") @db.VarChar(20)
+  resolvedBy    Int?         @map("resolved_by")
+  resolvedAt    DateTime?    @map("resolved_at") @db.Timestamptz(6)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  staffMember   StaffMember  @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  business      Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  resolver      User?        @relation("FlagResolver", fields: [resolvedBy], references: [id], onDelete: NoAction)
+
+  @@map("staff_flags")
+}
+
+model StaffInvitation {
+  id                Int      @id @default(autoincrement())
+  staffInvitationId String   @unique @default(uuid()) @map("staff_invitation_id") @db.Uuid
+  businessId        Int      @map("business_id")
+  phone             String   @map("phone") @db.VarChar(20)
+  spaceId           Int?     @map("space_id")
+  status            String   @default("PENDING") @map("status") @db.VarChar(20)
+  expiresAt         DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("staff_invitations")
+}
+
+model StaffRequest {
+  id             Int       @id @default(autoincrement())
+  staffRequestId String    @unique @default(uuid()) @map("staff_request_id") @db.Uuid
+  userId         Int       @map("user_id")
+  businessId     Int       @map("business_id")
+  spaceId        Int?      @map("space_id")
+  status         String    @default("PENDING") @map("status") @db.VarChar(30)
+  notes          String?   @map("notes")
+  reviewNotes    String?   @map("review_notes")
+  reviewedBy     Int?      @map("reviewed_by")
+  reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reviewer       User?     @relation("StaffReviewer", fields: [reviewedBy], references: [id], onDelete: NoAction)
+  user           User      @relation("StaffRequester", fields: [userId], references: [id], onDelete: Cascade)
+  space          Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
+
+  @@map("staff_requests")
+}
+
+model ParkingSession {
+  id                  Int                      @id @default(autoincrement())
+  parkingSessionId    String                   @unique @default(uuid()) @map("parking_session_id") @db.Uuid
+  spaceId             Int                      @map("space_id")
+  vehicleId           Int?                     @map("vehicle_id")
+  vehicleNumber       String                   @map("vehicle_number") @db.VarChar(20)
+  vehicleType         String                   @map("vehicle_type") @db.VarChar(20)
+  guestName           String?                  @map("guest_name") @db.VarChar(200)
+  guestPhone          String?                  @map("guest_phone") @db.VarChar(20)
+  tokenId             String?                  @unique @map("token_id") @db.VarChar(50)
+  isOnBehalf          Boolean                  @default(false) @map("is_on_behalf")
+  userId              Int?                     @map("user_id")
+  status              String                   @default("ACTIVE") @map("status") @db.VarChar(30)
+  checkedInAt         DateTime                 @default(now()) @map("checked_in_at") @db.Timestamptz(6)
+  checkedOutAt        DateTime?                @map("checked_out_at") @db.Timestamptz(6)
+  durationMinutes     Int?                     @map("duration_minutes")
+  amountPaise         Int?                     @map("amount_paise")
+  overrideAmountPaise Int?                     @map("override_amount_paise")
+  overrideReason      String?                  @map("override_reason")
+  checkedInByStaffId  Int?                     @map("checked_in_by_staff_id")
+  checkedOutByStaffId Int?                     @map("checked_out_by_staff_id")
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  checkoutSessions    CheckoutRequestSession[]
+  checkedInBy         StaffMember?             @relation("CheckedInBy", fields: [checkedInByStaffId], references: [id], onDelete: NoAction)
+  checkedOutBy        StaffMember?             @relation("CheckedOutBy", fields: [checkedOutByStaffId], references: [id], onDelete: NoAction)
+  space               Space                    @relation(fields: [spaceId], references: [id], onDelete: NoAction)
+  user                User?                    @relation(fields: [userId], references: [id], onDelete: NoAction)
+  vehicle             Vehicle?                 @relation(fields: [vehicleId], references: [id], onDelete: NoAction)
+
+  pricingVersionId         Int?                   @map("pricing_version_id")
+  pricingVersion           PricingFormulaVersion? @relation(fields: [pricingVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([spaceId, status])
+  @@index([userId, status])
+  @@index([guestPhone])
+  @@map("parking_sessions")
+}
+
+model CheckoutRequest {
+  id                  Int                      @id @default(autoincrement())
+  checkoutRequestId   String                   @unique @default(uuid()) @map("checkout_request_id") @db.Uuid
+  requestCode         String                   @map("request_code") @db.VarChar(6)
+  spaceId             Int                      @map("space_id")
+  userId              Int?                     @map("user_id")
+  status              String                   @default("PENDING") @map("status") @db.VarChar(20)
+  combinedAmountPaise Int                      @default(0) @map("combined_amount_paise")
+  expiresAt           DateTime                 @map("expires_at") @db.Timestamptz(6)
+  approvedBy          Int?                     @map("approved_by")
+  approvedAt          DateTime?                @map("approved_at") @db.Timestamptz(6)
+  rejectionReason     String?                  @map("rejection_reason")
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sessions            CheckoutRequestSession[]
+  approver            StaffMember?             @relation("ApprovedBy", fields: [approvedBy], references: [id], onDelete: NoAction)
+  space               Space                    @relation(fields: [spaceId], references: [id], onDelete: NoAction)
+  user                User?                    @relation(fields: [userId], references: [id], onDelete: NoAction)
+
+  @@index([spaceId, status])
+  @@map("checkout_requests")
+}
+
+model CheckoutRequestSession {
+  checkoutRequestId Int             @map("checkout_request_id")
+  parkingSessionId  Int             @map("parking_session_id")
+  checkoutRequest   CheckoutRequest @relation(fields: [checkoutRequestId], references: [id], onDelete: Cascade)
+  parkingSession    ParkingSession  @relation(fields: [parkingSessionId], references: [id], onDelete: Cascade)
+
+  @@id([checkoutRequestId, parkingSessionId])
+  @@map("checkout_request_sessions")
+}
+
+model BusinessRegistration {
+  id                     Int       @id @default(autoincrement())
+  businessRegistrationId String    @unique @default(uuid()) @map("business_registration_id") @db.Uuid
+  businessName           String    @map("business_name") @db.VarChar(200)
+  spaceType              String?   @map("space_type") @db.VarChar(100)
+  spaceName              String    @map("space_name") @db.VarChar(200)
+  spaceAddress           String    @map("space_address")
+  licenseNumber          String?   @map("license_number") @db.VarChar(100)
+  gstNumber              String?   @map("gst_number") @db.VarChar(20)
+  documentUrls           Json?     @default("{}") @map("document_urls")
+  submittedBy            Int?      @map("submitted_by")
+  status                 String    @default("PENDING") @map("status") @db.VarChar(30)
+  notes                  String?   @map("notes")
+  reviewNotes            String?   @map("review_notes")
+  reviewedBy             Int?      @map("reviewed_by")
+  reviewedAt             DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  resultBusinessId       Int?      @unique @map("result_business_id")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  resultBusiness         Business? @relation("RegistrationResult", fields: [resultBusinessId], references: [id], onDelete: NoAction)
+  reviewer               User?     @relation("RegistrationReviewer", fields: [reviewedBy], references: [id], onDelete: NoAction)
+  submitter              User?     @relation("RegistrationSubmitter", fields: [submittedBy], references: [id], onDelete: NoAction)
+  planId          Int?      @map("plan_id")
+  billingCycle    String?   @map("billing_cycle") @db.VarChar(20)
+  paymentProofUrl String?   @map("payment_proof_url")
+  linkId          String?   @map("link_id") @db.Uuid
+  plan            Plan?     @relation("RegistrationPlan", fields: [planId], references: [id], onDelete: NoAction)
+
+  @@map("business_registrations")
+}
+
+model document_categories {
+  id                                          BigInt   @id @default(autoincrement())
+  document_category_id                        String   @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                                        String   @unique @db.VarChar(50)
+  display_name                                String   @db.VarChar(100)
+  sort_order                                  Int      @default(0) @db.SmallInt
+  is_active                                   Boolean  @default(true)
+  created_by                                  Int?     @map("created_by")
+  created_at                                  DateTime @default(now()) @db.Timestamptz(6)
+  updated_by                                  Int?     @map("updated_by")
+  updated_at                                  DateTime @default(now()) @db.Timestamptz(6)
+  users_document_categories_created_byTousers User?    @relation("document_categories_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  users_document_categories_updated_byTousers User?    @relation("document_categories_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction)
+
+  @@index([code], map: "idx_document_categories_code")
+}
+
+model Notification {
+  id             Int       @id @default(autoincrement())
+  notificationId String    @unique @default(uuid()) @map("notification_id") @db.Uuid
+  userId         Int       @map("user_id")
+  type           String    @map("type") @db.VarChar(50)
+  title          String    @map("title") @db.VarChar(200)
+  body           String    @map("body")
+  data           Json?     @map("data")
+  readAt         DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model SystemSetting {
+  key       String   @id @map("key") @db.VarChar(100)
+  value     String   @map("value")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  @@map("system_settings")
+}
+
+model Plan {
+  id                   Int                    @id @default(autoincrement())
+  planId               String                 @unique @default(uuid()) @map("plan_id") @db.Uuid
+  name                 String                 @map("name") @db.VarChar(100)
+  slug                 String                 @unique @map("slug") @db.VarChar(50)
+  priceMonthlyPaise    Int?                   @map("price_monthly_paise")
+  priceYearlyPaise     Int?                   @map("price_yearly_paise")
+  maxSpaces            Int?                   @map("max_spaces")
+  maxStaff             Int?                   @map("max_staff")
+  analyticsDays        Int?                   @map("analytics_days")
+  features             Json                   @map("features")
+  isActive             Boolean                @default(true) @map("is_active")
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  subscriptions        BusinessSubscription[]
+  plans                Plan                   @relation("plansToplans", fields: [id], references: [id], onDelete: NoAction)
+  other_plans          Plan?                  @relation("plansToplans")
+  subscriptionRequests SubscriptionRequest[]
+  registrations        BusinessRegistration[] @relation("RegistrationPlan")
+
+  @@map("plans")
+}
+
+model BusinessSubscription {
+  id             Int       @id @default(autoincrement())
+  subscriptionId String    @unique @default(uuid()) @map("subscription_id") @db.Uuid
+  businessId     Int       @unique @map("business_id")
+  planId         Int       @map("plan_id")
+  status         String    @default("DEMO") @map("status") @db.VarChar(20)
+  billingCycle   String    @map("billing_cycle") @db.VarChar(20)
+  startsAt       DateTime  @map("starts_at") @db.Timestamptz(6)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(6)
+  graceExpiresAt DateTime? @map("grace_expires_at") @db.Timestamptz(6)
+  activatedBy    Int?      @map("activated_by")
+  activatedAt    DateTime? @map("activated_at") @db.Timestamptz(6)
+  notes          String?   @map("notes")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  activator      User?     @relation("SubscriptionActivator", fields: [activatedBy], references: [id], onDelete: NoAction)
+  business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan           Plan      @relation(fields: [planId], references: [id], onDelete: NoAction)
+
+  @@map("business_subscriptions")
+}
+
+model SubscriptionRequest {
+  id                    Int       @id @default(autoincrement())
+  subscriptionRequestId String    @unique @default(uuid()) @map("subscription_request_id") @db.Uuid
+  businessId            Int       @map("business_id")
+  planId                Int       @map("plan_id")
+  requestedBy           Int       @map("requested_by")
+  billingCycle          String    @map("billing_cycle") @db.VarChar(20)
+  status                String    @default("PENDING") @map("status") @db.VarChar(20)
+  notes                 String?   @map("notes")
+  reviewNotes           String?   @map("review_notes")
+  reviewedBy            Int?      @map("reviewed_by")
+  reviewedAt            DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  business              Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan                  Plan      @relation(fields: [planId], references: [id], onDelete: NoAction)
+  requester             User      @relation("SubscriptionRequester", fields: [requestedBy], references: [id], onDelete: NoAction)
+  reviewer              User?     @relation("SubscriptionReviewer", fields: [reviewedBy], references: [id], onDelete: NoAction)
+  linkId          String?   @map("link_id") @db.Uuid
+  paymentProofUrl String?   @map("payment_proof_url")
+
+  @@map("subscription_requests")
+}
+
+model AuditEntry {
+  id         Int      @id @default(autoincrement())
+  auditId    String   @unique @default(uuid()) @map("audit_id") @db.Uuid
+  businessId Int      @map("business_id")
+  spaceId    Int?     @map("space_id")
+  actorId    Int      @map("actor_id")
+  action     String   @map("action") @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id") @db.VarChar(50)
+  metadata   Json?    @map("metadata")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  actor      User     @relation(fields: [actorId], references: [id], onDelete: NoAction)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  space      Space?   @relation(fields: [spaceId], references: [id], onDelete: NoAction)
+
+  @@index([businessId, createdAt])
+  @@map("audit_entries")
+}

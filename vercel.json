@@ -1,0 +1,8 @@
+{
+  "crons": [
+    { "path": "/api/v1/cron/demo-expiry",       "schedule": "0 0 * * *" },
+    { "path": "/api/v1/cron/demo-cleanup",       "schedule": "0 1 * * *" },
+    { "path": "/api/v1/cron/subscription-grace", "schedule": "0 2 * * *" },
+    { "path": "/api/v1/cron/grace-expiry",       "schedule": "0 3 * * *" }
+  ]
+}
