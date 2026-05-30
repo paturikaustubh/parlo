@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, configDefaults } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     environment: "node",
     exclude: [
+      ...configDefaults.exclude,
       // missing @testing-library/react — fix separately
       "src/app/(user)/checkin/page.test.tsx",
       "src/app/(user/)/checkin/page.test.tsx",
