@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { withErrorHandling, created } from "@/lib/respond";
-import { ValidationError } from "@/lib/errors";
+import { ValidationError, ForbiddenError } from "@/lib/errors";
 import { requireRole } from "@/lib/auth";
 import { checkInOnBehalf } from "@/services/staff.service";
+import { assertBusinessSubscriptionActive } from "@/lib/subscription-limits";
+import { prisma } from "@/lib/db";
 
 const schema = z.object({
   vehicleNumber: z.string().min(1).max(20),
@@ -25,5 +27,18 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) throw new ValidationError({});
+
+  // Resolve businessId for subscription gate
+  const member = await prisma.staffMember.findFirst({
+    where: { userId: payload.userId, status: "ACTIVE" },
+    select: { businessId: true },
+  });
+  if (!member)
+    throw new ForbiddenError(
+      "FORBIDDEN",
+      "Staff member not found for this user.",
+    );
+  await assertBusinessSubscriptionActive(member.businessId);
+
   return created(await checkInOnBehalf(payload.userId, parsed.data));
 });

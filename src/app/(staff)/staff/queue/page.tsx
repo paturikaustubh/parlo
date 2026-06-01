@@ -1,10 +1,12 @@
 "use client";
 
 import { useStaff } from "@/contexts/staff-context";
+import { useStaffExpiry } from "@/contexts/staff-expiry-context";
 import { SpaceOperationsPanel } from "@/components/shared/space-operations-panel";
 
 export default function StaffQueuePage() {
   const { staffMember } = useStaff();
+  const { isExpired } = useStaffExpiry();
 
   return (
     <div className="space-y-5">
@@ -17,6 +19,7 @@ export default function StaffQueuePage() {
           spaceId={staffMember.spaceId}
           selfUserId={staffMember.user.userId}
           isOnDuty={staffMember.isOnDuty}
+          isExpired={isExpired}
         />
       ) : (
         <p className="text-sm text-muted-foreground text-center py-8">

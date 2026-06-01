@@ -31,6 +31,7 @@ interface SpaceOperationsPanelProps {
   spaceName?: string;
   selfUserId?: string; // current user's UUID — prevents self-approval in checkout cards
   isOnDuty?: boolean; // undefined = owner (no gate); false = staff off duty (blocked)
+  isExpired?: boolean; // subscription expired — disable all mutating actions
 }
 
 interface SpaceQR {
@@ -49,6 +50,7 @@ export function SpaceOperationsPanel({
   spaceName,
   selfUserId,
   isOnDuty,
+  isExpired = false,
 }: SpaceOperationsPanelProps) {
   const [qrValue, setQrValue] = useState<string | null>(null);
   const [qrExpiresAt, setQrExpiresAt] = useState<number | null>(null);
@@ -376,6 +378,7 @@ export function SpaceOperationsPanel({
               variant="outline"
               size="sm"
               className="h-7 px-2.5 text-xs gap-1.5"
+              disabled={isExpired}
               onClick={() => setCheckoutQrOpen(true)}
             >
               <IconQrcode size={13} />
@@ -432,8 +435,16 @@ export function SpaceOperationsPanel({
                   req={req}
                   acting={actingId === req.checkoutRequestId}
                   selfUserId={selfUserId}
-                  onApprove={() => handleApprove(req.checkoutRequestId)}
-                  onReject={() => openRejectDialog(req.checkoutRequestId)}
+                  onApprove={
+                    isExpired
+                      ? undefined
+                      : () => handleApprove(req.checkoutRequestId)
+                  }
+                  onReject={
+                    isExpired
+                      ? undefined
+                      : () => openRejectDialog(req.checkoutRequestId)
+                  }
                 />
               ))}
             </div>
@@ -469,7 +480,12 @@ export function SpaceOperationsPanel({
             >
               Cancel
             </Button>
-            <Button size="sm" variant="destructive" onClick={confirmReject}>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={isExpired}
+              onClick={confirmReject}
+            >
               Reject
             </Button>
           </DialogFooter>

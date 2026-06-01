@@ -50,6 +50,8 @@ import {
 } from "@tabler/icons-react";
 import { apiFetch } from "@/lib/api-client";
 import { formatAmount } from "@/lib/vehicle-utils";
+import { cn } from "@/lib/utils";
+import { useOwnerLimits } from "@/hooks/use-owner-limits";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -169,6 +171,7 @@ export default function SpaceDetailPage() {
   const { spaceId } = useParams<{ spaceId: string }>();
   const router = useRouter();
 
+  const { isExpired } = useOwnerLimits();
   const [space, setSpace] = useState<Space | null>(null);
   const [live, setLive] = useState<LiveStats | null>(null);
   const [revenue, setRevenue] = useState<RevenueStats | null>(null);
@@ -490,7 +493,8 @@ export default function SpaceDetailPage() {
               <button
                 type="button"
                 onClick={openEdit}
-                className="ml-auto flex items-center justify-between px-3 py-2.5 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/40 transition-all group gap-2"
+                disabled={isExpired}
+                className="ml-auto flex items-center justify-between px-3 py-2.5 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/40 transition-all group gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-2.5">
                   <IconPencil
@@ -505,7 +509,8 @@ export default function SpaceDetailPage() {
               <button
                 type="button"
                 onClick={() => setShowDelete(true)}
-                className="ml-auto flex items-center justify-between px-3 py-2.5 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/40 transition-all group gap-2"
+                disabled={isExpired}
+                className="ml-auto flex items-center justify-between px-3 py-2.5 rounded-xl border border-border hover:border-primary/30 hover:bg-muted/40 transition-all group gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-2.5">
                   <IconTrash

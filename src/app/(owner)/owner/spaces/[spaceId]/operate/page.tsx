@@ -9,9 +9,11 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api-client";
 import { SpaceOperationsPanel } from "@/components/shared/space-operations-panel";
 import type { Space } from "@/shared/types/entities";
+import { useOwnerLimits } from "@/hooks/use-owner-limits";
 
 export default function OwnerOperatePage() {
   const { spaceId } = useParams<{ spaceId: string }>();
+  const { isExpired } = useOwnerLimits();
   const [space, setSpace] = useState<Space | null>(null);
 
   useEffect(() => {
@@ -45,7 +47,11 @@ export default function OwnerOperatePage() {
       </div>
 
       {/* Space operations panel (QR + checkout requests) */}
-      <SpaceOperationsPanel spaceId={spaceId} spaceName={space?.name} />
+      <SpaceOperationsPanel
+        spaceId={spaceId}
+        spaceName={space?.name}
+        isExpired={isExpired}
+      />
     </div>
   );
 }
