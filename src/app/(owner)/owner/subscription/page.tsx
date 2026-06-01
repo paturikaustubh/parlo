@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import useSWR from "swr";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import { UpiPaymentDialog } from "@/components/owner/upi-payment-dialog";
 import { OwnerDemoChip } from "@/components/owner/owner-demo-chip";
 import { pageFetcher } from "@/lib/swr-fetcher";
 import { cn } from "@/lib/utils";
+import { useOwnerLimits } from "@/hooks/use-owner-limits";
 
 interface Plan {
   planId: string;
@@ -107,6 +109,18 @@ export default function OwnerSubscriptionPage() {
   );
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
+  const { sub: limitsData } = useOwnerLimits();
+  const [conflictPlanId, setConflictPlanId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!conflictPlanId) return;
+    setTimeout(
+      () =>
+        document
+          .getElementById("plan-conflict-error")
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+      0,
+    );
+  }, [conflictPlanId]);
 
   const { data: business } = useSWR<BusinessInfo>(
     ["/businesses/me"],
@@ -132,6 +146,39 @@ export default function OwnerSubscriptionPage() {
   const expiryDays = subscription ? daysUntil(subscription.expiresAt) : 0;
   const statusInfo = subscription ? STATUS_STYLES[subscription.status] : null;
   const pendingCount = requests.filter((r) => r.status === "PENDING").length;
+
+  function buildConflictMessage(plan: Plan): string | null {
+    if (!limitsData) return null;
+    const spacesUsed = limitsData.usage.spacesUsed;
+    const staffUsed = limitsData.usage.staffUsed;
+    const spacesOver = plan.maxSpaces !== null && spacesUsed > plan.maxSpaces;
+    const staffOver = plan.maxStaff !== null && staffUsed > plan.maxStaff;
+    if (!spacesOver && !staffOver) return null;
+
+    const planName = plan.name;
+    const parts: string[] = [];
+    if (spacesOver)
+      parts.push(`${plan.maxSpaces} space${plan.maxSpaces === 1 ? "" : "s"}`);
+    if (staffOver) parts.push(`${plan.maxStaff} staff`);
+    const allows = parts.join(" · ");
+
+    const delta: string[] = [];
+    if (spacesOver) {
+      const n = spacesUsed - plan.maxSpaces!;
+      delta.push(`${n} space${n === 1 ? "" : "s"}`);
+    }
+    if (staffOver) {
+      const n = staffUsed - plan.maxStaff!;
+      delta.push(`${n} staff`);
+    }
+
+    return `${planName} allows ${allows}. You have ${[
+      spacesOver ? `${spacesUsed} space${spacesUsed === 1 ? "" : "s"}` : null,
+      staffOver ? `${staffUsed} staff` : null,
+    ]
+      .filter(Boolean)
+      .join(" and ")} — remove ${delta.join(" and ")} to continue.`;
+  }
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -459,6 +506,12 @@ export default function OwnerSubscriptionPage() {
                           type="button"
                           disabled={isCurrent}
                           onClick={() => {
+                            setConflictPlanId(null);
+                            const msg = buildConflictMessage(plan);
+                            if (msg) {
+                              setConflictPlanId(plan.planId);
+                              return;
+                            }
                             setSelectedPlan(plan);
                             setPayDialogOpen(true);
                           }}
@@ -473,6 +526,30 @@ export default function OwnerSubscriptionPage() {
                         >
                           {isCurrent ? "Current Plan" : "Get Started"}
                         </button>
+                        {conflictPlanId === plan.planId && (
+                          <div
+                            id="plan-conflict-error"
+                            className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 space-y-1.5"
+                          >
+                            <p className="text-[11px] text-destructive leading-snug">
+                              {buildConflictMessage(plan)}
+                            </p>
+                            <div className="flex items-center gap-3">
+                              <Link
+                                href="/owner/spaces"
+                                className="text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+                              >
+                                Manage spaces
+                              </Link>
+                              <Link
+                                href="/owner/staff"
+                                className="text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+                              >
+                                Manage staff
+                              </Link>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

@@ -7,6 +7,7 @@ import { showToast } from "@/components/ui/toast";
 import { IconMapPin, IconArrowUp, IconArrowDown } from "@tabler/icons-react";
 import { apiFetch } from "@/lib/api-client";
 import { useStaff } from "@/contexts/staff-context";
+import { useStaffExpiry } from "@/contexts/staff-expiry-context";
 import { cn } from "@/lib/utils";
 import { ParkingStatusCard } from "@/components/shared/parking-status-card";
 
@@ -37,6 +38,7 @@ function timeAgo(iso: string) {
 
 export default function StaffDashboard() {
   const { staffMember, setStaffMember } = useStaff();
+  const { isExpired } = useStaffExpiry();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [toggling, setToggling] = useState(false);
@@ -99,13 +101,15 @@ export default function StaffDashboard() {
         <CardContent className="flex flex-col items-center gap-3">
           <button
             type="button"
-            disabled={toggling}
+            disabled={toggling || isExpired}
             onClick={handleDutyToggle}
             className={cn(
               "w-20 h-20 rounded-full flex items-center justify-center transition-all border-2 font-heading font-bold text-xs",
-              metrics?.isOnDuty
-                ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30"
-                : "border-muted-foreground/30 text-muted-foreground hover:border-primary/50",
+              isExpired
+                ? "border-muted-foreground/20 text-muted-foreground/40 cursor-not-allowed opacity-50"
+                : metrics?.isOnDuty
+                  ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/30"
+                  : "border-muted-foreground/30 text-muted-foreground hover:border-primary/50",
             )}
           >
             {metrics?.isOnDuty ? "ON" : "OFF"}
@@ -125,7 +129,11 @@ export default function StaffDashboard() {
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            {metrics?.isOnDuty ? "Tap to go off duty" : "Tap to start shift"}
+            {isExpired
+              ? "Locked — subscription expired"
+              : metrics?.isOnDuty
+                ? "Tap to go off duty"
+                : "Tap to start shift"}
           </p>
         </CardContent>
       </Card>

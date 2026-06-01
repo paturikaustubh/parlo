@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api-client";
 import { useStaff } from "@/contexts/staff-context";
+import { useStaffExpiry } from "@/contexts/staff-expiry-context";
 import { cn } from "@/lib/utils";
 import { IconCar, IconClock, IconSearch } from "@tabler/icons-react";
 
@@ -36,6 +37,7 @@ function formatDuration(minutes: number) {
 
 export default function OnBehalfPage() {
   const { staffMember } = useStaff();
+  const { isExpired } = useStaffExpiry();
   const [tab, setTab] = useState<Tab>("checkin");
   const [supportedTypes, setSupportedTypes] = useState<VehicleType[]>([]);
 
@@ -177,6 +179,7 @@ export default function OnBehalfPage() {
 
             {/* Number plate — hero field */}
             <Input
+              disabled={isExpired}
               value={vehicleNumber}
               onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
               placeholder="MH 12 AB 1234"
@@ -189,12 +192,14 @@ export default function OnBehalfPage() {
                 <button
                   key={value}
                   type="button"
+                  disabled={isExpired}
                   onClick={() => setVehicleType(value)}
                   className={cn(
                     "flex-1 py-2 rounded-lg text-xs font-semibold border transition-all",
                     vehicleType === value
                       ? "bg-primary border-primary text-primary-foreground shadow-sm"
                       : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+                    isExpired && "opacity-50 cursor-not-allowed",
                   )}
                 >
                   {label}
@@ -218,6 +223,7 @@ export default function OnBehalfPage() {
             {/* Name + phone: 2-col on md+ */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input
+                disabled={isExpired}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Name"
@@ -227,6 +233,7 @@ export default function OnBehalfPage() {
                   +91
                 </span>
                 <Input
+                  disabled={isExpired}
                   value={phone}
                   onChange={(e) =>
                     setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
@@ -244,10 +251,14 @@ export default function OnBehalfPage() {
           <div className="px-5 pb-5">
             <Button
               className="w-full h-11"
-              disabled={!vehicleNumber.trim() || checkingIn}
+              disabled={!vehicleNumber.trim() || checkingIn || isExpired}
               onClick={handleCheckIn}
             >
-              {checkingIn ? "Checking in…" : "Check In Vehicle"}
+              {isExpired
+                ? "Locked — subscription expired"
+                : checkingIn
+                  ? "Checking in…"
+                  : "Check In Vehicle"}
             </Button>
           </div>
         </div>
@@ -263,6 +274,7 @@ export default function OnBehalfPage() {
               className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
             />
             <Input
+              disabled={isExpired}
               placeholder="Search by plate…"
               value={sessionSearch}
               onChange={(e) => setSessionSearch(e.target.value)}
@@ -324,12 +336,14 @@ export default function OnBehalfPage() {
           {selectedSession && (
             <Button
               className="w-full h-11"
-              disabled={checkingOut}
+              disabled={checkingOut || isExpired}
               onClick={handleCheckOut}
             >
-              {checkingOut
-                ? "Checking out…"
-                : `Check Out · ${selectedSession.vehicleNumber}`}
+              {isExpired
+                ? "Locked — subscription expired"
+                : checkingOut
+                  ? "Checking out…"
+                  : `Check Out · ${selectedSession.vehicleNumber}`}
             </Button>
           )}
         </div>

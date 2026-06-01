@@ -4,6 +4,7 @@ import { ok, withErrorHandling } from "@/lib/respond";
 import { NotFoundError, ForbiddenError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { getOrRotateQr } from "@/services/qr.service";
+import { assertBusinessSubscriptionActive } from "@/lib/subscription-limits";
 
 type Ctx = { params: Promise<{ spaceId: string }> };
 
@@ -14,6 +15,8 @@ export const GET = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
 
   const space = await prisma.space.findUnique({ where: { spaceId } });
   if (!space) throw new NotFoundError("NOT_FOUND", "Space not found");
+
+  await assertBusinessSubscriptionActive(space.businessId);
 
   const isOwner = payload.roles.includes("OWNER");
   if (!isOwner) {
