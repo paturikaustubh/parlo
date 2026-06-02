@@ -75,6 +75,7 @@ export async function findSessionByDbId(id: number) {
 export async function listSessions(filters: {
   userId?: number;
   spaceId?: number;
+  spaceIds?: number[];
   status?: string;
   guestPhone?: string;
   tokenId?: string;
@@ -86,7 +87,11 @@ export async function listSessions(filters: {
 }) {
   const where: Record<string, unknown> = {};
   if (filters.userId) where.userId = filters.userId;
-  if (filters.spaceId) where.spaceId = filters.spaceId;
+  if (filters.spaceId) {
+    where.spaceId = filters.spaceId;
+  } else if (filters.spaceIds) {
+    where.spaceId = { in: filters.spaceIds };
+  }
   if (filters.status) where.status = filters.status;
   if (filters.guestPhone) where.guestPhone = filters.guestPhone;
   if (filters.tokenId) where.tokenId = filters.tokenId;

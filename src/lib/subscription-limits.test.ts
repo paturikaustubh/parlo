@@ -101,3 +101,95 @@ describe("assertBusinessSubscriptionActive", () => {
     });
   });
 });
+
+describe("getOwnerAnalyticsConfig", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns cutoffDate = 30 days ago and staffPerformance=true for growth plan", async () => {
+    vi.mocked(prisma.businessSubscription.findUnique).mockResolvedValue({
+      status: "ACTIVE",
+      expiresAt: new Date(Date.now() + 86_400_000),
+      graceExpiresAt: null,
+      plan: {
+        name: "Growth",
+        maxSpaces: 3,
+        maxStaff: 10,
+        analyticsDays: 30,
+        features: {
+          staffPerformance: true,
+          dutyTracking: true,
+          amountOverride: true,
+          prioritySupport: false,
+        },
+      },
+    } as any);
+
+    const { getOwnerAnalyticsConfig } =
+      await import("@/lib/subscription-limits");
+    const { cutoffDate, staffPerformanceEnabled } =
+      await getOwnerAnalyticsConfig(1);
+
+    expect(staffPerformanceEnabled).toBe(true);
+    expect(cutoffDate).not.toBeNull();
+    const diffDays =
+      (Date.now() - cutoffDate!.getTime()) / (1000 * 60 * 60 * 24);
+    expect(diffDays).toBeGreaterThanOrEqual(29.9);
+    expect(diffDays).toBeLessThanOrEqual(30.1);
+  });
+
+  it("returns cutoffDate=null and staffPerformance=false for starter plan", async () => {
+    vi.mocked(prisma.businessSubscription.findUnique).mockResolvedValue({
+      status: "ACTIVE",
+      expiresAt: new Date(Date.now() + 86_400_000),
+      graceExpiresAt: null,
+      plan: {
+        name: "Starter",
+        maxSpaces: 1,
+        maxStaff: 3,
+        analyticsDays: 30,
+        features: {
+          staffPerformance: false,
+          dutyTracking: true,
+          amountOverride: false,
+          prioritySupport: false,
+        },
+      },
+    } as any);
+
+    const { getOwnerAnalyticsConfig } =
+      await import("@/lib/subscription-limits");
+    const { cutoffDate, staffPerformanceEnabled } =
+      await getOwnerAnalyticsConfig(1);
+
+    expect(staffPerformanceEnabled).toBe(false);
+    expect(cutoffDate).not.toBeNull(); // 30-day cutoff still applies
+  });
+
+  it("returns null cutoffDate for plan with unlimited analytics", async () => {
+    vi.mocked(prisma.businessSubscription.findUnique).mockResolvedValue({
+      status: "ACTIVE",
+      expiresAt: new Date(Date.now() + 86_400_000),
+      graceExpiresAt: null,
+      plan: {
+        name: "Pro",
+        maxSpaces: null,
+        maxStaff: null,
+        analyticsDays: null,
+        features: {
+          staffPerformance: true,
+          dutyTracking: true,
+          amountOverride: true,
+          prioritySupport: true,
+        },
+      },
+    } as any);
+
+    const { getOwnerAnalyticsConfig } =
+      await import("@/lib/subscription-limits");
+    const { cutoffDate, staffPerformanceEnabled } =
+      await getOwnerAnalyticsConfig(1);
+
+    expect(cutoffDate).toBeNull();
+    expect(staffPerformanceEnabled).toBe(true);
+  });
+});

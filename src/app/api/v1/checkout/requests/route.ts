@@ -21,8 +21,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
 
   // Resolve businessId from first session for subscription gate
   const firstSession = await prisma.parkingSession.findFirst({
-    where: { sessionId: sessionIds[0] },
-    select: { space: { select: { businessId: true } } },
+    where: { parkingSessionId: sessionIds[0] },
+    include: { space: { select: { businessId: true } } },
   });
   if (!firstSession?.space?.businessId) {
     throw new NotFoundError(
