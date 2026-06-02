@@ -6,6 +6,7 @@ import { StaffSidebar } from "./staff-sidebar";
 import { StaffBottomNav } from "./staff-bottom-nav";
 import { AppHeader } from "../shared/app-header";
 import { SubscriptionExpiryBanner } from "@/components/shared/subscription-expiry-banner";
+import { MainContainer } from "@/components/shared/main-container";
 import { StaffContext } from "@/contexts/staff-context";
 import { StaffExpiryContext } from "@/contexts/staff-expiry-context";
 import { UserContext } from "@/contexts/user-context";
@@ -61,7 +62,7 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
             <div className="flex">
               <StaffSidebar />
               <main className="flex-1 md:pl-56 pt-16">
-                <div className="p-4 md:p-8 max-w-7xl mx-auto">{children}</div>
+                <MainContainer>{children}</MainContainer>
               </main>
             </div>
             <SubscriptionExpiryBanner

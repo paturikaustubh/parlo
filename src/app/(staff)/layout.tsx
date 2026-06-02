@@ -1,13 +1,9 @@
-import { ThemeProvider } from "next-themes";
+import { StaffLayoutClient } from "@/components/staff/staff-layout-client";
 
-export default function StaffGroupLayout({
+export default function StaffLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      {children}
-    </ThemeProvider>
-  );
+  return <StaffLayoutClient>{children}</StaffLayoutClient>;
 }
