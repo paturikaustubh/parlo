@@ -182,7 +182,7 @@ function ActivityInner() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="font-heading font-bold text-xl text-foreground tracking-tight">
-          Activity
+          Logs
         </h1>
         <span className="text-xs text-muted-foreground">{total} entries</span>
       </div>

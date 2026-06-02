@@ -17,7 +17,10 @@ import {
   formatCheckoutRequest,
 } from "@/repositories/checkout.repository";
 import { prisma } from "@/lib/db";
-import { assertFeatureEnabled } from "@/lib/subscription-limits";
+import {
+  assertFeatureEnabled,
+  assertBusinessSubscriptionActive,
+} from "@/lib/subscription-limits";
 
 type Ctx = { params: Promise<{ requestId: string }> };
 
@@ -43,35 +46,54 @@ export const PATCH = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) throw new ValidationError({});
 
+  // Subscription gate — resolve businessId via request → space first
+  const crForGate = await findCheckoutRequestById(requestId);
+  if (!crForGate)
+    throw new NotFoundError(
+      "CHECKOUT_REQUEST_NOT_FOUND",
+      "Checkout request not found",
+    );
+  const spaceForGate = await prisma.space.findUnique({
+    where: { id: (crForGate as any).spaceId },
+    select: { businessId: true },
+  });
+  if (!spaceForGate)
+    throw new NotFoundError("SPACE_NOT_FOUND", "Space not found.");
+  await assertBusinessSubscriptionActive(spaceForGate.businessId);
+
   let staffDbId: number;
   let isOwner = false;
   const member = await prisma.staffMember.findFirst({
     where: { userId: payload.userId },
   });
   if (member) {
+    // Verify staff belongs to the same business as the checkout request
+    if (member.businessId !== spaceForGate.businessId)
+      throw new ForbiddenError(
+        "FORBIDDEN",
+        "Checkout request not in your business",
+      );
     staffDbId = member.id;
     isOwner = member.status === "OWNER";
   } else if (payload.roles.includes("OWNER")) {
     const biz = await prisma.business.findFirst({
       where: { ownerId: payload.userId },
     });
-    if (biz) {
-      isOwner = true;
-      staffDbId = 0;
-    } else {
-      throw new UnauthorizedError("Not an owner");
-    }
+    // Verify owner's business matches the checkout request's space
+    if (!biz || biz.id !== spaceForGate.businessId)
+      throw new ForbiddenError(
+        "FORBIDDEN",
+        "Checkout request not in your business",
+      );
+    isOwner = true;
+    staffDbId = 0;
   } else {
     throw new UnauthorizedError("Must be staff or owner");
   }
 
   // Staff cannot approve their own checkout request
   if (parsed.data.status === "APPROVED" && !isOwner) {
-    const checkoutReq = await findCheckoutRequestById(requestId);
-    if (
-      checkoutReq &&
-      (checkoutReq as { userId?: number | null }).userId === payload.userId
-    ) {
+    if ((crForGate as { userId?: number | null }).userId === payload.userId) {
       throw new ForbiddenError(
         "FORBIDDEN",
         "Sorry, can't checkout yourself :)",
@@ -80,17 +102,7 @@ export const PATCH = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
   }
 
   if (parsed.data.finalAmount !== undefined) {
-    const cr = await findCheckoutRequestById(requestId);
-    if (!cr)
-      throw new NotFoundError(
-        "CHECKOUT_REQUEST_NOT_FOUND",
-        "Checkout request not found",
-      );
-    const space = await prisma.space.findUnique({
-      where: { id: (cr as any).spaceId },
-      select: { businessId: true },
-    });
-    if (space) await assertFeatureEnabled(space.businessId, "amountOverride");
+    await assertFeatureEnabled(spaceForGate.businessId, "amountOverride");
   }
 
   const result = await updateCheckoutRequest(

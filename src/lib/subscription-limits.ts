@@ -21,13 +21,30 @@ async function getSubscriptionWithPlan(businessId: number) {
   return sub;
 }
 
-function assertStatusActive(status: string, planName: string) {
-  if (status === "EXPIRED")
+function assertStatusActive(sub: {
+  status: string;
+  expiresAt: Date;
+  graceExpiresAt: Date | null;
+  plan: { name: string };
+}) {
+  const now = new Date();
+  // Real-time enforcement — cron updates DB status once/day but expiry must be instant
+  if (sub.status === "DEMO" && sub.expiresAt < now)
     throw new ForbiddenError(
       "SUBSCRIPTION_EXPIRED",
-      `Your ${planName} subscription has expired. Please renew to continue.`,
+      "Your demo trial has expired. Please subscribe to continue.",
     );
-  if (status === "CANCELLED")
+  if (sub.status === "GRACE" && sub.graceExpiresAt && sub.graceExpiresAt < now)
+    throw new ForbiddenError(
+      "SUBSCRIPTION_EXPIRED",
+      "Your grace period has ended. Please renew to continue.",
+    );
+  if (sub.status === "EXPIRED")
+    throw new ForbiddenError(
+      "SUBSCRIPTION_EXPIRED",
+      `Your ${sub.plan.name} subscription has expired. Please renew to continue.`,
+    );
+  if (sub.status === "CANCELLED")
     throw new ForbiddenError(
       "SUBSCRIPTION_CANCELLED",
       "Your subscription has been cancelled. Please contact support.",
@@ -36,7 +53,7 @@ function assertStatusActive(status: string, planName: string) {
 
 export async function assertSpaceLimit(businessId: number) {
   const sub = await getSubscriptionWithPlan(businessId);
-  assertStatusActive(sub.status, sub.plan.name);
+  assertStatusActive(sub);
   if (sub.plan.maxSpaces === null) return; // unlimited (Pro/Demo)
   const count = await prisma.space.count({
     where: { businessId, isActive: true },
@@ -50,7 +67,7 @@ export async function assertSpaceLimit(businessId: number) {
 
 export async function assertStaffLimit(businessId: number) {
   const sub = await getSubscriptionWithPlan(businessId);
-  assertStatusActive(sub.status, sub.plan.name);
+  assertStatusActive(sub);
   if (sub.plan.maxStaff === null) return; // unlimited (Pro/Demo)
   const count = await prisma.staffMember.count({
     where: { businessId, status: { not: "REMOVED" } },
@@ -67,13 +84,18 @@ export async function assertFeatureEnabled(
   feature: keyof PlanFeatures,
 ) {
   const sub = await getSubscriptionWithPlan(businessId);
-  assertStatusActive(sub.status, sub.plan.name);
+  assertStatusActive(sub);
   const features = sub.plan.features as unknown as PlanFeatures;
   if (!features[feature])
     throw new ForbiddenError(
       "FEATURE_NOT_AVAILABLE",
       `This feature requires a higher plan. Upgrade to unlock it.`,
     );
+}
+
+export async function assertBusinessSubscriptionActive(businessId: number) {
+  const sub = await getSubscriptionWithPlan(businessId);
+  assertStatusActive(sub);
 }
 
 export async function getAnalyticsCutoffDate(
@@ -84,4 +106,18 @@ export async function getAnalyticsCutoffDate(
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - sub.plan.analyticsDays);
   return cutoff;
+}
+
+export async function getOwnerAnalyticsConfig(businessId: number): Promise<{
+  cutoffDate: Date | null;
+  staffPerformanceEnabled: boolean;
+}> {
+  const sub = await getSubscriptionWithPlan(businessId);
+  const cutoffDate =
+    sub.plan.analyticsDays === null
+      ? null
+      : new Date(Date.now() - sub.plan.analyticsDays * 24 * 60 * 60 * 1000);
+  const features = sub.plan.features as Record<string, boolean>;
+  const staffPerformanceEnabled = features?.staffPerformance === true;
+  return { cutoffDate, staffPerformanceEnabled };
 }

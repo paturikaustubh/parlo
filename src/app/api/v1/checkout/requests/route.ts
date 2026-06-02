@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { withErrorHandling, ok, created } from "@/lib/respond";
-import { ValidationError } from "@/lib/errors";
+import { ValidationError, NotFoundError } from "@/lib/errors";
 import { requireAuth } from "@/lib/auth";
 import { createCheckoutRequest } from "@/services/checkout.service";
 import {
@@ -8,6 +8,7 @@ import {
   listCheckoutRequests,
 } from "@/repositories/checkout.repository";
 import { prisma } from "@/lib/db";
+import { assertBusinessSubscriptionActive } from "@/lib/subscription-limits";
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
   const payload = await requireAuth(req);
@@ -17,6 +18,19 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
     throw new ValidationError({ sessionIds: "array of UUIDs required" });
   }
+
+  // Resolve businessId from first session for subscription gate
+  const firstSession = await prisma.parkingSession.findFirst({
+    where: { parkingSessionId: sessionIds[0] },
+    include: { space: { select: { businessId: true } } },
+  });
+  if (!firstSession?.space?.businessId) {
+    throw new NotFoundError(
+      "SESSION_NOT_FOUND",
+      "Session not found or has no associated space.",
+    );
+  }
+  await assertBusinessSubscriptionActive(firstSession.space.businessId);
 
   const request = await createCheckoutRequest(sessionIds, payload?.userId);
   return created(request);

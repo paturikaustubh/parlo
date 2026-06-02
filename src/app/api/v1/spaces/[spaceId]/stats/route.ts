@@ -1,17 +1,28 @@
 import type { NextRequest } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { ok, withErrorHandling } from "@/lib/respond";
-import { NotFoundError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 
 type Ctx = { params: Promise<{ spaceId: string }> };
 
 export const GET = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
-  await requireRole(req, "OWNER");
+  const payload = await requireRole(req, "OWNER", "STAFF");
 
   const { spaceId } = await ctx.params;
-  const space = await prisma.space.findUnique({ where: { spaceId } });
+  const space = await prisma.space.findUnique({
+    where: { spaceId },
+    include: { business: { select: { ownerId: true } } },
+  });
   if (!space) throw new NotFoundError("NOT_FOUND", "Space not found");
+
+  const isOwner = space.business.ownerId === payload.userId;
+  if (!isOwner) {
+    const member = await prisma.staffMember.findFirst({
+      where: { userId: payload.userId, businessId: space.businessId },
+    });
+    if (!member) throw new ForbiddenError("FORBIDDEN", "Not your space");
+  }
 
   const [currentlyParked, onDutyStaff, activeRequests] = await Promise.all([
     prisma.parkingSession.count({

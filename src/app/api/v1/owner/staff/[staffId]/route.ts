@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { findStaffById, formatStaff } from "@/repositories/staff.repository";
 import { invalidateUserSessions } from "@/services/auth.service";
 import { prisma } from "@/lib/db";
+import { assertBusinessSubscriptionActive } from "@/lib/subscription-limits";
 
 type Ctx = { params: Promise<{ staffId: string }> };
 
@@ -33,6 +34,8 @@ export const PATCH = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
       "NOT_FOUND",
       "Staff member not found in your business",
     );
+
+  await assertBusinessSubscriptionActive(business.id);
 
   const data: Record<string, unknown> = {};
   if (parsed.data.status !== undefined) data.status = parsed.data.status;
@@ -77,6 +80,8 @@ export const DELETE = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
       "NOT_FOUND",
       "Staff member not found in your business",
     );
+
+  await assertBusinessSubscriptionActive(business.id);
 
   await prisma.staffMember.update({
     where: { staffMemberId: staffId },

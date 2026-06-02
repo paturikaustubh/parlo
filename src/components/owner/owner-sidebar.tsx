@@ -41,7 +41,7 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    header: "Activity",
+    header: "Operations",
     items: [
       { href: "/owner/sessions", label: "Sessions", icon: IconTicket },
       { href: "/owner/queue", label: "Requests", icon: IconListCheck },
@@ -54,18 +54,18 @@ const SECTIONS: Section[] = [
       { href: "/owner/spaces", label: "Spaces", icon: IconMapPin },
       { href: "/owner/staff", label: "Staff", icon: IconUsers },
       { href: "/owner/business", label: "Business", icon: IconBuilding },
+      {
+        href: "/owner/subscription",
+        label: "Subscription",
+        icon: IconCreditCard,
+      },
     ],
   },
   {
     header: "Reports",
     items: [
       { href: "/owner/reports", label: "Reports", icon: IconChartBar },
-      { href: "/owner/activity", label: "Activity", icon: IconFileText },
-      {
-        href: "/owner/subscription",
-        label: "Subscription",
-        icon: IconCreditCard,
-      },
+      { href: "/owner/activity", label: "Logs", icon: IconFileText },
       { href: "/owner/settings", label: "Settings", icon: IconSettings },
     ],
   },

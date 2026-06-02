@@ -16,8 +16,17 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     prisma.subscriptionRequest.findMany({
       where,
       include: {
-        plan: { select: { planId: true, name: true, slug: true } },
+        plan: {
+          select: {
+            planId: true,
+            name: true,
+            slug: true,
+            priceMonthlyPaise: true,
+            priceYearlyPaise: true,
+          },
+        },
         requester: { select: { userId: true, name: true, phone: true } },
+        business: { select: { name: true } },
       },
       skip: (page - 1) * pageSize,
       take: pageSize,

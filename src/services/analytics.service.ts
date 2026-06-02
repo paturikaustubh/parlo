@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getAnalyticsCutoffDate } from "@/lib/subscription-limits";
+import { getOwnerAnalyticsConfig } from "@/lib/subscription-limits";
 
 export async function getUserAnalytics(
   userId: number,
@@ -161,9 +161,11 @@ export async function getOwnerAnalytics(
       staffPerformance: [],
     };
 
-  const cutoff = await getAnalyticsCutoffDate(business.id);
-  if (cutoff !== null) {
-    const cutoffStr = cutoff.toISOString();
+  const { cutoffDate, staffPerformanceEnabled } = await getOwnerAnalyticsConfig(
+    business.id,
+  );
+  if (cutoffDate !== null) {
+    const cutoffStr = cutoffDate.toISOString();
     if (!from || from < cutoffStr) from = cutoffStr;
   }
 
@@ -277,72 +279,81 @@ export async function getOwnerAnalytics(
     .map(([hour, count]) => ({ hour, count }));
 
   // ── Staff performance ─────────────────────────────────────────────────────
-  const staffMembers = await prisma.staffMember.findMany({
-    where: { businessId: business.id, status: { not: "OWNER" } },
-    include: { user: { select: { name: true } } },
-  });
-  const staffIds = staffMembers.map((m) => m.id);
+  let staffPerformance: {
+    staffMemberId: string;
+    name: string;
+    checkIns: number;
+    checkOuts: number;
+    approvals: number;
+  }[] = [];
+  if (staffPerformanceEnabled) {
+    const staffMembers = await prisma.staffMember.findMany({
+      where: { businessId: business.id, status: { not: "OWNER" } },
+      include: { user: { select: { name: true } } },
+    });
+    const staffIds = staffMembers.map((m) => m.id);
 
-  const [checkIns, checkOuts, approvals] = await Promise.all([
-    prisma.parkingSession.groupBy({
-      by: ["checkedInByStaffId"],
-      where: {
-        spaceId: { in: spaceIds },
-        checkedInByStaffId: { in: staffIds },
-        ...(dateWhere ? { checkedInAt: dateWhere } : {}),
-      },
-      _count: { _all: true },
-    }),
-    prisma.parkingSession.groupBy({
-      by: ["checkedOutByStaffId"],
-      where: {
-        spaceId: { in: spaceIds },
-        checkedOutByStaffId: { in: staffIds },
-        ...(dateWhere ? { checkedOutAt: dateWhere } : {}),
-      },
-      _count: { _all: true },
-    }),
-    prisma.checkoutRequest.groupBy({
-      by: ["approvedBy"],
-      where: {
-        spaceId: { in: spaceIds },
-        approvedBy: { in: staffIds },
-        status: "APPROVED",
-        ...(dateWhere ? { approvedAt: dateWhere } : {}),
-      },
-      _count: { _all: true },
-    }),
-  ]);
+    const [checkIns, checkOuts, approvals] = await Promise.all([
+      prisma.parkingSession.groupBy({
+        by: ["checkedInByStaffId"],
+        where: {
+          spaceId: { in: spaceIds },
+          checkedInByStaffId: { in: staffIds },
+          ...(dateWhere ? { checkedInAt: dateWhere } : {}),
+        },
+        _count: { _all: true },
+      }),
+      prisma.parkingSession.groupBy({
+        by: ["checkedOutByStaffId"],
+        where: {
+          spaceId: { in: spaceIds },
+          checkedOutByStaffId: { in: staffIds },
+          ...(dateWhere ? { checkedOutAt: dateWhere } : {}),
+        },
+        _count: { _all: true },
+      }),
+      prisma.checkoutRequest.groupBy({
+        by: ["approvedBy"],
+        where: {
+          spaceId: { in: spaceIds },
+          approvedBy: { in: staffIds },
+          status: "APPROVED",
+          ...(dateWhere ? { approvedAt: dateWhere } : {}),
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
-  const checkInMap = new Map(
-    checkIns.map((r) => [
-      r.checkedInByStaffId!,
-      (r._count as { _all: number })._all ?? 0,
-    ]),
-  );
-  const checkOutMap = new Map(
-    checkOuts.map((r) => [
-      r.checkedOutByStaffId!,
-      (r._count as { _all: number })._all ?? 0,
-    ]),
-  );
-  const approvalMap = new Map(
-    approvals.map((r) => [
-      r.approvedBy!,
-      (r._count as { _all: number })._all ?? 0,
-    ]),
-  );
+    const checkInMap = new Map(
+      checkIns.map((r) => [
+        r.checkedInByStaffId!,
+        (r._count as { _all: number })._all ?? 0,
+      ]),
+    );
+    const checkOutMap = new Map(
+      checkOuts.map((r) => [
+        r.checkedOutByStaffId!,
+        (r._count as { _all: number })._all ?? 0,
+      ]),
+    );
+    const approvalMap = new Map(
+      approvals.map((r) => [
+        r.approvedBy!,
+        (r._count as { _all: number })._all ?? 0,
+      ]),
+    );
 
-  const staffPerformance = staffMembers
-    .map((m) => ({
-      staffMemberId: m.staffMemberId,
-      name: m.user.name,
-      checkIns: checkInMap.get(m.id) ?? 0,
-      checkOuts: checkOutMap.get(m.id) ?? 0,
-      approvals: approvalMap.get(m.id) ?? 0,
-    }))
-    .filter((m) => m.checkIns + m.checkOuts + m.approvals > 0)
-    .sort((a, b) => b.checkIns + b.checkOuts - (a.checkIns + a.checkOuts));
+    staffPerformance = staffMembers
+      .map((m) => ({
+        staffMemberId: m.staffMemberId,
+        name: m.user.name,
+        checkIns: checkInMap.get(m.id) ?? 0,
+        checkOuts: checkOutMap.get(m.id) ?? 0,
+        approvals: approvalMap.get(m.id) ?? 0,
+      }))
+      .filter((m) => m.checkIns + m.checkOuts + m.approvals > 0)
+      .sort((a, b) => b.checkIns + b.checkOuts - (a.checkIns + a.checkOuts));
+  }
 
   const [currentlyParked, onDutyStaff, activeRequests, byTypeRaw] =
     await Promise.all([

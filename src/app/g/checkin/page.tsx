@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -345,9 +346,17 @@ function GuestCheckinInner() {
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1 flex items-center gap-1">
             <IconMapPin size={11} /> Checking in at
           </p>
-          <h1 className="font-heading font-bold text-xl text-foreground">
-            {state.spaceName}
-          </h1>
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="font-heading font-bold text-xl text-foreground">
+              {state.spaceName}
+            </h1>
+            <Link
+              href="/g/checkout"
+              className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
+            >
+              Checkout
+            </Link>
+          </div>
           {state.businessName && (
             <p className="text-sm text-muted-foreground">
               {state.businessName}
@@ -465,30 +474,19 @@ function GuestCheckinInner() {
           {submitting ? "Checking in…" : "Check In as Guest"}
         </Button>
 
-        <div className="flex flex-col items-center gap-1">
-          <p className="text-center text-xs text-muted-foreground">
-            Have an account?{" "}
-            <a
-              href={
-                urlToken
-                  ? `/signin?next=${encodeURIComponent(`/g/checkin?token=${urlToken}`)}`
-                  : "/signin"
-              }
-              className="text-primary underline underline-offset-2"
-            >
-              Sign in
-            </a>
-          </p>
-          <p className="text-center text-xs text-muted-foreground">
-            Want to leave?{" "}
-            <a
-              href="/g/checkout"
-              className="text-primary underline underline-offset-2"
-            >
-              Request checkout
-            </a>
-          </p>
-        </div>
+        <p className="text-center text-xs text-muted-foreground">
+          Have an account?{" "}
+          <Link
+            href={
+              urlToken
+                ? `/signin?next=${encodeURIComponent(`/g/checkin?token=${urlToken}`)}`
+                : "/signin"
+            }
+            className="text-primary underline underline-offset-2"
+          >
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   );

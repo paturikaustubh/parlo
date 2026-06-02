@@ -1,17 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef, Suspense } from "react";
-import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
 import { SessionDetailSheet } from "@/components/shared/session-detail-sheet";
 import { type PricingRule } from "@/components/user/pricing-grid";
 import { apiFetch } from "@/lib/api-client";
 import { pageFetcher } from "@/lib/swr-fetcher";
 import { usePaginationParams } from "@/lib/use-pagination-params";
-import { Pagination } from "@/components/shared/pagination";
-import {
-  FilterDialog,
-  type FilterField,
-} from "@/components/shared/filter-dialog";
+import { FilterDialog } from "@/components/shared/filter-dialog";
 import { ActiveFilterChips } from "@/components/shared/active-filter-chips";
 import { Input } from "@/components/ui/input";
 import { IconSearch } from "@tabler/icons-react";
@@ -99,32 +95,132 @@ function ActivityInner() {
   >(null);
   const [pricingLoading, setPricingLoading] = useState(false);
 
-  const { get, getInt, setParam, setParams } = usePaginationParams();
+  const { get, setParams } = usePaginationParams();
   const search = get("search", "");
   const actionType = get("actionType", "");
   const vehicleType = get("vehicleType", "");
-  const page = getInt("page", 1);
-  const pageSize = getInt("pageSize", 20);
+
+  const [highlightedDates, setHighlightedDates] = useState<Set<string>>(
+    new Set(),
+  );
+
+  function toggleHighlight(dateKey: string) {
+    setHighlightedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) next.delete(dateKey);
+      else next.add(dateKey);
+      return next;
+    });
+  }
+
+  const PAGE_SIZE = 25;
+
+  function groupByDate(
+    list: ActionedSession[],
+  ): { dateKey: string; dateLabel: string; sessions: ActionedSession[] }[] {
+    const order: string[] = [];
+    const labels: Record<string, string> = {};
+    const map: Record<string, ActionedSession[]> = {};
+    const todayKey = new Date().toDateString();
+
+    for (const s of list) {
+      const dt = new Date(s.checkedOutAt ?? s.checkedInAt);
+      const key = dt.toDateString();
+      if (!map[key]) {
+        order.push(key);
+        map[key] = [];
+        labels[key] =
+          key === todayKey
+            ? "Today"
+            : dt
+                .toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "2-digit",
+                })
+                .toUpperCase();
+      }
+      map[key].push(s);
+    }
+
+    return order.map((key) => ({
+      dateKey: key,
+      dateLabel: labels[key],
+      sessions: map[key],
+    }));
+  }
 
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   function handleSearchChange(val: string) {
     if (searchRef.current) clearTimeout(searchRef.current);
     searchRef.current = setTimeout(() => {
-      setParams({ search: val, page: 1 });
+      setParams({ search: val });
     }, 400);
   }
 
-  const { data, isLoading } = useSWR<ActionedResponse>(
-    [
+  const getKey = (
+    pageIndex: number,
+    previousPageData: ActionedResponse | null,
+  ): [string, Record<string, unknown>] | null => {
+    if (previousPageData && pageIndex + 1 > previousPageData.lastPage)
+      return null;
+    return [
       "/staff/me/actioned-sessions",
-      { search, actionType, vehicleType, page, pageSize },
-    ],
-    pageFetcher,
-  );
+      {
+        search,
+        actionType,
+        vehicleType,
+        page: pageIndex + 1,
+        pageSize: PAGE_SIZE,
+      },
+    ];
+  };
 
-  const sessions = data?.data ?? [];
-  const total = data?.total ?? 0;
-  const lastPage = data?.lastPage ?? 1;
+  const {
+    data: pages,
+    isLoading,
+    isValidating,
+    setSize,
+  } = useSWRInfinite<ActionedResponse>(getKey, pageFetcher, {
+    revalidateFirstPage: false,
+  });
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const hasMore =
+      !!pages &&
+      pages[pages.length - 1].page < pages[pages.length - 1].lastPage;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isValidating) {
+          setSize((s) => s + 1);
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pages, isValidating, setSize]);
+
+  const sessions = pages?.flatMap((p) => p.data) ?? [];
+  const total = pages?.[0]?.total ?? 0;
+  const hasMore =
+    !!pages && pages[pages.length - 1].page < pages[pages.length - 1].lastPage;
+  const isLoadingMore = isValidating && !!pages;
+  const grouped = groupByDate(sessions);
+
+  const totalRevenuePaise = sessions.reduce(
+    (sum, s) => sum + (s.amountPaise ?? 0),
+    0,
+  );
+  const checkinCount = sessions.filter(
+    (s) => s.actionType === "checkin" || s.actionType === "both",
+  ).length;
+  const checkoutCount = sessions.filter(
+    (s) => s.actionType === "checkout" || s.actionType === "both",
+  ).length;
 
   // Fetch session-specific pricing version when a session is selected
   useEffect(() => {
@@ -205,7 +301,6 @@ function ActivityInner() {
             setParams({
               actionType: vals.actionType ?? "",
               vehicleType: vals.vehicleType ?? "",
-              page: 1,
             });
           }}
         />
@@ -217,12 +312,52 @@ function ActivityInner() {
         defaults={FILTER_DEFAULTS}
         labels={FILTER_LABELS}
         optionLabels={FILTER_OPTION_LABELS}
-        onRemove={(key) => setParams({ [key]: "", page: 1 })}
+        onRemove={(key) => setParams({ [key]: "" })}
       />
 
+      {/* Summary bar */}
+      {sessions.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { label: "Sessions", value: String(total) },
+            {
+              label: "Check-ins",
+              value: String(checkinCount),
+              green: checkinCount > 0,
+            },
+            { label: "Check-outs", value: String(checkoutCount) },
+            {
+              label: "Revenue",
+              value: formatAmount(totalRevenuePaise),
+              highlight: true,
+            },
+          ].map(({ label, value, highlight, green }) => (
+            <div
+              key={label}
+              className="bg-card border border-border rounded-lg px-3.5 py-2.5 flex flex-col gap-0.5"
+            >
+              <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                {label}
+              </span>
+              <span
+                className={`text-[15px] font-bold leading-none tabular-nums ${
+                  highlight
+                    ? "text-primary"
+                    : green
+                      ? "text-primary"
+                      : "text-foreground"
+                }`}
+              >
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* List */}
-      {isLoading && !data ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {isLoading && !pages ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
           ))}
@@ -234,82 +369,126 @@ function ActivityInner() {
           </p>
         </div>
       ) : (
-        <>
-          <div
-            className={`transition-opacity duration-150 ${isLoading && !!data ? "opacity-50 pointer-events-none" : ""}`}
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {sessions.map((s) => {
-                const config = ACTION_CONFIG[s.actionType];
-                const timeDisplay = getTimeDisplay(s);
-                const amountNode =
-                  s.status === "ACTIVE"
-                    ? s.estimatedAmountPaise != null && (
-                        <span className="text-primary font-semibold tabular-nums">
-                          {formatAmount(s.estimatedAmountPaise)} est.
-                        </span>
-                      )
-                    : s.amountPaise != null && (
-                        <span className="text-primary font-semibold tabular-nums">
-                          {formatAmount(s.amountPaise)}
-                        </span>
-                      );
-
-                return (
-                  <button
-                    key={`${s.parkingSessionId}-${s.actionType}`}
-                    type="button"
-                    onClick={() => setSelected(s)}
-                    className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors flex flex-col justify-between"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="font-mono font-bold text-sm text-foreground">
-                          {s.vehicleNumber}
-                        </span>
-                        <span
-                          className={cn(
-                            "text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase",
-                            config.className,
-                          )}
-                        >
-                          {config.label}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-medium text-muted-foreground shrink-0">
-                        {TYPE_TO_SHORT[s.vehicleType] ?? s.vehicleType}
+        <div
+          className={`transition-opacity duration-150 space-y-6 ${isLoading && !!pages ? "opacity-50 pointer-events-none" : ""}`}
+        >
+          {grouped.map(({ dateKey, dateLabel, sessions: group }) => {
+            const groupRevenue = group.reduce(
+              (sum, s) => sum + (s.amountPaise ?? 0),
+              0,
+            );
+            return (
+              <div
+                key={dateKey}
+                className={`rounded-xl transition-colors duration-200 ${
+                  highlightedDates.has(dateKey) ? "bg-primary/30 p-3" : ""
+                }`}
+              >
+                {/* Sticky date header */}
+                <div className="sticky top-0 z-10 pb-2.5">
+                  <div className="flex items-center justify-between w-full group">
+                    <button
+                      type="button"
+                      onClick={() => toggleHighlight(dateKey)}
+                      className={`text-xs font-bold uppercase tracking-widest transition-colors ${
+                        highlightedDates.has(dateKey)
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {dateLabel}
+                    </button>
+                    <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                      <span>
+                        {group.length} session{group.length !== 1 ? "s" : ""}
                       </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {timeDisplay}
-                      </p>
-                      {amountNode && (
-                        <span className="text-[11px] shrink-0">
-                          {amountNode}
-                        </span>
+                      {groupRevenue > 0 && (
+                        <>
+                          <span>·</span>
+                          <span className="text-primary font-semibold tabular-nums">
+                            {formatAmount(groupRevenue)}
+                          </span>
+                        </>
                       )}
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                  </div>
+                </div>
 
-          {sessions.length > 0 && (
-            <Pagination
-              className="mt-4"
-              page={page}
-              lastPage={lastPage}
-              pageSize={pageSize}
-              loading={isLoading}
-              onPageChange={(p) => setParam("page", p)}
-              onPageSizeChange={(s) => setParam("pageSize", s)}
-              onRefresh={() => {}}
-            />
-          )}
-        </>
+                {/* Cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                  {group.map((s) => {
+                    const config = ACTION_CONFIG[s.actionType];
+                    const timeDisplay = getTimeDisplay(s);
+                    const amountNode =
+                      s.status === "ACTIVE"
+                        ? s.estimatedAmountPaise != null && (
+                            <span className="text-primary font-semibold tabular-nums">
+                              {formatAmount(s.estimatedAmountPaise)} est.
+                            </span>
+                          )
+                        : s.amountPaise != null && (
+                            <span className="text-primary font-semibold tabular-nums">
+                              {formatAmount(s.amountPaise)}
+                            </span>
+                          );
+
+                    return (
+                      <button
+                        key={`${s.parkingSessionId}-${s.actionType}`}
+                        type="button"
+                        onClick={() => setSelected(s)}
+                        className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors flex flex-col justify-between"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="font-mono font-bold text-[15px] text-foreground">
+                              {s.vehicleNumber}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase",
+                                config.className,
+                              )}
+                            >
+                              {config.label}
+                            </span>
+                          </div>
+                          <span className="text-[11px] font-medium text-muted-foreground shrink-0">
+                            {TYPE_TO_SHORT[s.vehicleType] ?? s.vehicleType}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[12px] text-muted-foreground truncate">
+                            {timeDisplay}
+                          </p>
+                          {amountNode && (
+                            <span className="text-[13px] shrink-0">
+                              {amountNode}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} className="h-4" />
+      {isLoadingMore && (
+        <div className="flex justify-center py-4">
+          <div className="w-5 h-5 rounded-full border-2 border-border border-t-primary animate-spin" />
+        </div>
+      )}
+      {!hasMore && sessions.length > 0 && (
+        <p className="text-center text-xs text-muted-foreground py-4">
+          All sessions loaded
+        </p>
       )}
 
       <SessionDetailSheet

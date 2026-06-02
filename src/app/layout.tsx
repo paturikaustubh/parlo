@@ -5,6 +5,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { SWRProvider } from "@/components/shared/swr-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const figtreeHeading = Figtree({
   subsets: ["latin"],
@@ -50,8 +51,10 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <SWRProvider>{children}</SWRProvider>
-          <Toaster richColors position="top-right" closeButton />
+          <TooltipProvider>
+            <SWRProvider>{children}</SWRProvider>
+            <Toaster richColors position="top-right" closeButton />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

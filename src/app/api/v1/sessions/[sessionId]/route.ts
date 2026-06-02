@@ -1,10 +1,15 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { withErrorHandling, ok } from "@/lib/respond";
-import { UnauthorizedError, ValidationError } from "@/lib/errors";
+import {
+  UnauthorizedError,
+  ValidationError,
+  NotFoundError,
+} from "@/lib/errors";
 import { requireAuth } from "@/lib/auth";
 import { getSession, closeSession } from "@/services/session.service";
 import { prisma } from "@/lib/db";
+import { assertBusinessSubscriptionActive } from "@/lib/subscription-limits";
 
 type Ctx = { params: Promise<{ sessionId: string }> };
 
@@ -33,6 +38,14 @@ export const PATCH = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
     });
     staffDbId = member?.id;
   }
+
+  // Resolve businessId via session → space
+  const sessionRecord = await prisma.parkingSession.findUnique({
+    where: { parkingSessionId: sessionId },
+    include: { space: { select: { businessId: true } } },
+  });
+  if (!sessionRecord) throw new NotFoundError("NOT_FOUND", "Session not found");
+  await assertBusinessSubscriptionActive(sessionRecord.space.businessId);
 
   const session = await closeSession(sessionId, staffDbId);
   return ok(session);

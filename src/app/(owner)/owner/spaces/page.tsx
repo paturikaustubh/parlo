@@ -31,6 +31,7 @@ import {
 import { showToast } from "@/components/ui/toast";
 import { IconMapPin, IconPlus, IconRadio } from "@tabler/icons-react";
 import { apiFetch } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 import type { Space } from "@/shared/types/entities";
 import { useOwnerLimits } from "@/hooks/use-owner-limits";
 import {
@@ -49,7 +50,7 @@ const SPACE_TYPES = [
 
 export default function OwnerSpacesPage() {
   const router = useRouter();
-  const { atSpaceLimit, sub, status } = useOwnerLimits();
+  const { atSpaceLimit, isExpired, sub, status } = useOwnerLimits();
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -137,7 +138,7 @@ export default function OwnerSpacesPage() {
             <span>
               <Button
                 size="sm"
-                disabled={atSpaceLimit}
+                disabled={atSpaceLimit || isExpired}
                 onClick={() => setShowAdd(true)}
               >
                 <IconPlus size={15} /> Add space
@@ -165,7 +166,7 @@ export default function OwnerSpacesPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={atSpaceLimit}
+            disabled={atSpaceLimit || isExpired}
             onClick={() => setShowAdd(true)}
           >
             <IconPlus size={15} /> Add space
@@ -200,14 +201,15 @@ export default function OwnerSpacesPage() {
               <CardFooter className="justify-between">
                 <Badge
                   variant={space.isActive ? "outline" : "secondary"}
-                  className={
+                  className={cn(
                     space.isActive
                       ? "text-emerald-600 border-emerald-600/30 text-[10px]"
-                      : "text-[10px]"
-                  }
+                      : "text-[10px]",
+                    isExpired && "pointer-events-none opacity-50",
+                  )}
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleActive(space);
+                    if (!isExpired) toggleActive(space);
                   }}
                 >
                   {space.isActive ? "Active" : "Inactive"}

@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { findStaffById } from "@/repositories/staff.repository";
 import { prisma } from "@/lib/db";
+import { assertBusinessSubscriptionActive } from "@/lib/subscription-limits";
 
 type Ctx = { params: Promise<{ staffId: string; flagId: string }> };
 
@@ -19,6 +20,8 @@ export const PATCH = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
   });
   if (!business)
     throw new NotFoundError("NOT_FOUND", "Staff member not in your business");
+
+  await assertBusinessSubscriptionActive(business.id);
 
   const body = await req.json().catch(() => null);
   if (body?.status !== "RESOLVED")

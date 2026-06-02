@@ -40,6 +40,12 @@ export const PATCH = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
   }
 
   if (parsed.data.status === "APPROVED") {
+    const business = await prisma.business.findUnique({
+      where: { id: request.businessId },
+    });
+    if (!business)
+      throw new NotFoundError("BUSINESS_NOT_FOUND", "Business not found");
+
     const plan = await prisma.plan.findUnique({
       where: { id: request.planId },
     });

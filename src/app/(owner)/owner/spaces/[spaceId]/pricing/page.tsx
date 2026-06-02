@@ -20,7 +20,7 @@ import { TYPE_TO_FULL } from "@/lib/vehicle-utils";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type VehicleType = "TWO_WHEELER" | "THREE_WHEELER" | "FOUR_WHEELER" | "HEAVY";
-type FormulaType = "FLAT_SLAB" | "CYCLIC" | "OVERFLOW" | "CUMULATIVE";
+type FormulaType = "FLAT_SLAB" | "CYCLIC" | "OVERFLOW";
 
 interface PricingRule {
   pricingRuleId: string;
@@ -64,16 +64,15 @@ const FORMULA_OPTIONS = [
     label: "Flat slab",
     desc: "Last matching bracket wins.",
   },
-  { value: "CYCLIC", label: "Cyclic", desc: "Brackets reset every cycle." },
+  {
+    value: "CYCLIC",
+    label: "Cyclic",
+    desc: "Brackets reset every cycle. Cycle length = last slab end time.",
+  },
   {
     value: "OVERFLOW",
     label: "Overflow",
     desc: "Slabs up to last bracket, then per-interval rate.",
-  },
-  {
-    value: "CUMULATIVE",
-    label: "Cumulative",
-    desc: "Pay proportionally across tiers.",
   },
 ] as const;
 
@@ -228,7 +227,6 @@ export default function SpacePricingPage() {
   ]);
   const [grid, setGrid] = useState<PriceGrid>({});
   const [formulaType, setFormulaType] = useState<FormulaType>("FLAT_SLAB");
-  const [cycleDurationHours, setCycleDurationHours] = useState("");
   const [overflowIntervalMinutes, setOverflowIntervalMinutes] = useState("");
   const [overflowAmountPaise, setOverflowAmountPaise] = useState("");
   const [loading, setLoading] = useState(true);
@@ -273,9 +271,10 @@ export default function SpacePricingPage() {
             },
           });
         }
-        setFormulaType(data.formulaType ?? "FLAT_SLAB");
-        setCycleDurationHours(
-          data.cycleDurationHours ? String(data.cycleDurationHours) : "",
+        setFormulaType(
+          (data.formulaType as string) === "CUMULATIVE"
+            ? "FLAT_SLAB"
+            : (data.formulaType ?? "FLAT_SLAB"),
         );
         setOverflowIntervalMinutes(
           data.overflowIntervalMinutes
@@ -378,9 +377,12 @@ export default function SpacePricingPage() {
 
     // Client-side formula config validation with friendly messages
     if (formulaType === "CYCLIC") {
-      const cd = parseFloat(cycleDurationHours);
-      if (!cycleDurationHours || isNaN(cd) || cd <= 0) {
-        showToast("Cycle duration must be greater than 0 hours.", "error");
+      const lastSlab = slabs[slabs.length - 1];
+      if (!lastSlab?.toHours || isNaN(parseFloat(lastSlab.toHours))) {
+        showToast(
+          "Last slab must have an end time for cyclic billing — it defines the cycle length.",
+          "error",
+        );
         return;
       }
     }
@@ -408,9 +410,10 @@ export default function SpacePricingPage() {
         body: JSON.stringify({
           formulaType,
           rules,
-          cycleDurationHours: cycleDurationHours
-            ? parseFloat(cycleDurationHours)
-            : null,
+          cycleDurationHours:
+            formulaType === "CYCLIC"
+              ? parseFloat(slabs[slabs.length - 1].toHours)
+              : null,
           overflowIntervalMinutes: overflowIntervalMinutes
             ? parseInt(overflowIntervalMinutes)
             : null,
@@ -620,19 +623,23 @@ export default function SpacePricingPage() {
 
         {/* Formula-specific config */}
         {formulaType === "CYCLIC" && (
-          <div className="flex items-center gap-3 rounded-xl bg-muted/40 border border-border px-4 py-3">
-            <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-              Cycle duration (hrs)
-            </label>
-            <Input
-              type="number"
-              min="1"
-              step="1"
-              placeholder="24"
-              value={cycleDurationHours}
-              onChange={(e) => setCycleDurationHours(e.target.value)}
-              className="h-9 text-sm max-w-[100px]"
-            />
+          <div className="rounded-xl bg-muted/40 border border-border px-4 py-3 space-y-1">
+            <p className="text-xs font-semibold text-foreground">
+              Cycle length
+            </p>
+            {slabs[slabs.length - 1]?.toHours ? (
+              <p className="text-xs text-muted-foreground">
+                Automatically set to{" "}
+                <span className="font-semibold text-foreground">
+                  {slabs[slabs.length - 1].toHours}h
+                </span>{" "}
+                — derived from your last slab&apos;s end time.
+              </p>
+            ) : (
+              <p className="text-xs text-destructive">
+                Set an end time on the last slab to define the cycle length.
+              </p>
+            )}
           </div>
         )}
 
@@ -669,15 +676,6 @@ export default function SpacePricingPage() {
                 className="h-9 text-sm max-w-[100px]"
               />
             </div>
-          </div>
-        )}
-
-        {formulaType === "CUMULATIVE" && (
-          <div className="rounded-xl bg-muted/40 border border-border px-4 py-3">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Amount = cost if the full bracket is consumed. Partial time is
-              prorated automatically. All brackets must have an end time.
-            </p>
           </div>
         )}
 

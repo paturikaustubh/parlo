@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/shared/app-header";
 import { MainContainer } from "@/components/shared/main-container";
 import { OwnerSidebar } from "./owner-sidebar";
 import { OwnerBottomNav } from "./owner-bottom-nav";
+import { SubscriptionExpiryBanner } from "@/components/shared/subscription-expiry-banner";
 import { apiFetch } from "@/lib/api-client";
 import type { User, UserRoleEntry } from "@/shared/types/entities";
 
@@ -55,6 +56,7 @@ export function OwnerLayoutClient({ children }: { children: React.ReactNode }) {
         <main className="pt-16 md:pl-56 pb-16 md:pb-0">
           <MainContainer>{children}</MainContainer>
         </main>
+        <SubscriptionExpiryBanner />
         <OwnerBottomNav />
       </div>
     </UserContext.Provider>

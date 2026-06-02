@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getUserAnalytics } from "@/services/analytics.service";
 import { describe, it, expect, vi } from "vitest";
 
 describe("getUserAnalytics spendingTrend", () => {
