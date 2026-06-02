@@ -62,6 +62,7 @@ docs/superpowers/**
 
 # graphify
 .graphify_python
+.graphify_incremental.json
 graphify-out/
 src/graphify-out/
 
