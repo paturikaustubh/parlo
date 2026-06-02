@@ -67,11 +67,11 @@ function formatMonth(month: string): string {
 }
 
 const PIE_COLORS = [
-  "hsl(var(--primary))",
-  "#60a5fa",
-  "#f59e0b",
-  "#10b981",
-  "#8b5cf6",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ];
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -162,7 +162,7 @@ export default function AnalyticsPage() {
 
     const params = from ? `?from=${encodeURIComponent(from)}` : "";
     setError(false);
-    apiFetch<AnalyticsData>(`/analytics/me${params}`)
+    apiFetch<AnalyticsData>(`/users/me/analytics${params}`)
       .then((fresh) => {
         cache.current.set(cacheKey, fresh);
         setData(fresh);
@@ -267,9 +267,12 @@ export default function AnalyticsPage() {
                   config={{
                     spentPaise: {
                       label: "Spent (₹)",
-                      color: "hsl(var(--primary))",
+                      color: "var(--chart-1)",
                     },
-                    sessionCount: { label: "Sessions", color: "#60a5fa" },
+                    sessionCount: {
+                      label: "Sessions",
+                      color: "var(--chart-2)",
+                    },
                   }}
                   className="h-52 w-full"
                 >
@@ -318,7 +321,7 @@ export default function AnalyticsPage() {
                     <Bar
                       yAxisId="left"
                       dataKey="spentPaise"
-                      fill="hsl(var(--primary))"
+                      fill="var(--chart-1)"
                       radius={[3, 3, 0, 0]}
                       maxBarSize={32}
                     />
@@ -326,7 +329,7 @@ export default function AnalyticsPage() {
                       yAxisId="right"
                       dataKey="sessionCount"
                       type="monotone"
-                      stroke="#60a5fa"
+                      stroke="var(--chart-2)"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -419,7 +422,7 @@ export default function AnalyticsPage() {
                 <CardContent className="px-2 pb-3">
                   <ChartContainer
                     config={{
-                      visits: { label: "Visits", color: "hsl(var(--primary))" },
+                      visits: { label: "Visits", color: "var(--chart-1)" },
                     }}
                     className="h-36 w-full"
                   >
@@ -443,7 +446,7 @@ export default function AnalyticsPage() {
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Bar
                         dataKey="visits"
-                        fill="hsl(var(--primary))"
+                        fill="var(--chart-1)"
                         radius={[0, 3, 3, 0]}
                         maxBarSize={14}
                       />

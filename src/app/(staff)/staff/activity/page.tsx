@@ -344,7 +344,7 @@ function ActivityInner() {
                   highlight
                     ? "text-primary"
                     : green
-                      ? "text-green-500"
+                      ? "text-primary"
                       : "text-foreground"
                 }`}
               >
