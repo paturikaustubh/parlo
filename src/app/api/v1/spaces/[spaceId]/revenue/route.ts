@@ -1,17 +1,22 @@
 import type { NextRequest } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { ok, withErrorHandling } from "@/lib/respond";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 
 type Ctx = { params: Promise<{ spaceId: string }> };
 
 export const GET = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
-  await requireRole(req, "OWNER");
+  const payload = await requireRole(req, "OWNER");
 
   const { spaceId } = await ctx.params;
-  const space = await prisma.space.findUnique({ where: { spaceId } });
+  const space = await prisma.space.findUnique({
+    where: { spaceId },
+    include: { business: { select: { ownerId: true } } },
+  });
   if (!space) throw new NotFoundError("NOT_FOUND", "Space not found");
+  if (space.business.ownerId !== payload.userId)
+    throw new ForbiddenError("FORBIDDEN", "Not your space");
 
   const url = new URL(req.url);
   const fromParam = url.searchParams.get("from");

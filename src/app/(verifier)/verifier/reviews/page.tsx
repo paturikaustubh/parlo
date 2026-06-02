@@ -22,6 +22,7 @@ import {
 } from "@tabler/icons-react";
 import { apiFetch } from "@/lib/api-client";
 import type { BusinessRegistration } from "@/shared/types/entities";
+import { ContactChip } from "@/components/shared/contact-chip";
 
 function LinkChip({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -48,8 +49,13 @@ interface SubscriptionRequest {
   reviewNotes: string | null;
   createdAt: string;
   linkId?: string | null;
-  requestedByUser?: { name: string; phone: string };
-  plan?: { name: string; priceMonthlyPaise: number | null };
+  paymentProofUrl?: string | null;
+  requester?: { name: string; phone: string };
+  plan?: {
+    name: string;
+    priceMonthlyPaise: number | null;
+    priceYearlyPaise: number | null;
+  };
   business?: { name: string };
 }
 
@@ -214,10 +220,13 @@ export default function VerifierReviewsPage() {
                           />
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {reg.submittedByUser?.name} ·{" "}
-                        {reg.submittedByUser?.phone}
-                      </p>
+                      <div className="mt-1">
+                        <ContactChip
+                          name={reg.submittedByUser?.name}
+                          phone={reg.submittedByUser?.phone}
+                          label="Owner"
+                        />
+                      </div>
                     </div>
                     <Badge variant="secondary" className="text-[10px] shrink-0">
                       Pending
@@ -370,13 +379,13 @@ export default function VerifierReviewsPage() {
           ) : (
             pendingPayments.map((req) => (
               <Card key={req.subscriptionRequestId} className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="px-4 py-3.5 border-b border-border/60 flex items-start justify-between gap-3">
+                <CardContent className="">
+                  <CardTitle className="font-bold">
+                    {req.business?.name ?? "—"}
+                  </CardTitle>
+                  <div className="border-b border-border/60 flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-foreground truncate">
-                          {req.business?.name ?? "Business"}
-                        </p>
                         {req.linkId && (
                           <LinkChip
                             label="← Registration"
@@ -384,16 +393,19 @@ export default function VerifierReviewsPage() {
                           />
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {req.requestedByUser?.name} ·{" "}
-                        {req.requestedByUser?.phone}
-                      </p>
+                      <div className="mt-1">
+                        <ContactChip
+                          name={req.requester?.name}
+                          phone={req.requester?.phone}
+                          label="Owner"
+                        />
+                      </div>
                     </div>
                     <Badge variant="outline" className="shrink-0 text-[10px]">
-                      {req.plan?.name ?? "Plan"}
+                      {req.plan?.name ?? "—"}
                     </Badge>
                   </div>
-                  <div className="px-4 py-3 border-b border-border/60">
+                  <div className="px-4 py-3 border-b border-border/60 space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -401,9 +413,11 @@ export default function VerifierReviewsPage() {
                         </p>
                         <p className="font-heading font-bold text-lg text-foreground mt-0.5">
                           ₹
-                          {((req.plan?.priceMonthlyPaise ?? 0) / 100).toFixed(
-                            0,
-                          )}
+                          {(
+                            ((req.billingCycle === "YEARLY"
+                              ? req.plan?.priceYearlyPaise
+                              : req.plan?.priceMonthlyPaise) ?? 0) / 100
+                          ).toLocaleString("en-IN")}
                           <span className="text-xs font-normal text-muted-foreground ml-1">
                             /{req.billingCycle === "MONTHLY" ? "mo" : "yr"}
                           </span>
@@ -418,6 +432,18 @@ export default function VerifierReviewsPage() {
                         </p>
                       </div>
                     </div>
+                    {req.paymentProofUrl && (
+                      <a
+                        href={req.paymentProofUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-xs font-medium text-primary transition-colors"
+                      >
+                        <IconReceiptRupee size={12} />
+                        Payment proof
+                        <IconExternalLink size={11} className="opacity-60" />
+                      </a>
+                    )}
                   </div>
                   <div className="px-4 py-3 flex gap-2">
                     <Button

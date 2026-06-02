@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import useSWR from "swr";
 import {
   ComposedChart,
@@ -32,6 +33,7 @@ import {
 import { formatAmount } from "@/lib/vehicle-utils";
 import { pageFetcher } from "@/lib/swr-fetcher";
 import { usePaginationParams } from "@/lib/use-pagination-params";
+import { useOwnerLimits } from "@/hooks/use-owner-limits";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -128,8 +130,19 @@ export default function OwnerReportsPage() {
   const { get, setParam } = usePaginationParams();
   const range = get("range", "30d") as Range;
 
+  const { sub, hasFeature } = useOwnerLimits();
+  const analyticsDays = sub?.plan.analyticsDays ?? null; // null = unlimited
+
+  useEffect(() => {
+    if (analyticsDays === null) return;
+    if (range === "90d" && analyticsDays < 90) setParam("range", "30d");
+    if (range === "30d" && analyticsDays < 30) setParam("range", "7d");
+  }, [analyticsDays, range]);
+
+  const fromDate = useMemo(() => rangeToFrom(range), [range]);
+
   const { data, isLoading, isValidating, mutate } = useSWR<OwnerAnalytics>(
-    ["/analytics/me", { from: rangeToFrom(range) }],
+    ["/analytics/me", { from: fromDate }],
     pageFetcher,
     {
       dedupingInterval: 5 * 60 * 1000, // 5 min cache per tab
@@ -166,19 +179,29 @@ export default function OwnerReportsPage() {
         </h1>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg bg-muted p-1 gap-0.5">
-            {RANGES.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setParam("range", key)}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  range === key
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+            {RANGES.map(({ key, label }) => {
+              const days = key === "7d" ? 7 : key === "30d" ? 30 : 90;
+              const isDisabled = analyticsDays !== null && days > analyticsDays;
+              return (
+                <button
+                  key={key}
+                  disabled={isDisabled}
+                  onClick={() => !isDisabled && setParam("range", key)}
+                  title={
+                    isDisabled
+                      ? `Your plan includes ${analyticsDays}-day analytics`
+                      : undefined
+                  }
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    range === key
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  } ${isDisabled ? "opacity-30 cursor-not-allowed" : ""}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
           <Button
             variant="ghost"
@@ -189,7 +212,9 @@ export default function OwnerReportsPage() {
           >
             <IconRefresh
               size={14}
-              className={isValidating ? "animate-spin" : ""}
+              className={
+                isValidating ? "animate-spin [animation-direction:reverse]" : ""
+              }
             />
           </Button>
         </div>
@@ -496,7 +521,7 @@ export default function OwnerReportsPage() {
           )}
 
           {/* Staff Performance */}
-          {d.staffPerformance.length > 0 && (
+          {hasFeature("staffPerformance") && d.staffPerformance.length > 0 && (
             <Card>
               <CardHeader className="px-4 py-4">
                 <CardTitle className="text-sm font-semibold flex items-center gap-1.5">

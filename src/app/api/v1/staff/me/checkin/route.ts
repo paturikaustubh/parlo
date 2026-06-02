@@ -31,7 +31,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   // Resolve businessId for subscription gate
   const member = await prisma.staffMember.findFirst({
     where: { userId: payload.userId, status: "ACTIVE" },
-    select: { businessId: true },
+    select: { businessId: true, spaceId: true },
   });
   if (!member)
     throw new ForbiddenError(
@@ -39,6 +39,16 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       "Staff member not found for this user.",
     );
   await assertBusinessSubscriptionActive(member.businessId);
+
+  // Verify provided spaceId belongs to this staff member's business
+  if (parsed.data.spaceId) {
+    const targetSpace = await prisma.space.findUnique({
+      where: { spaceId: parsed.data.spaceId },
+      select: { businessId: true },
+    });
+    if (!targetSpace || targetSpace.businessId !== member.businessId)
+      throw new ForbiddenError("FORBIDDEN", "Space not in your business");
+  }
 
   return created(await checkInOnBehalf(payload.userId, parsed.data));
 });

@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { withErrorHandling, ok } from "@/lib/respond";
-import { ValidationError } from "@/lib/errors";
+import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { requireRole } from "@/lib/auth";
 import { getPricing, replacePricing } from "@/services/space.service";
+import { prisma } from "@/lib/db";
 
 type Ctx = { params: Promise<{ spaceId: string }> };
 
@@ -30,8 +31,23 @@ const putSchema = z.object({
 });
 
 export const GET = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
-  await requireRole(req, "STAFF", "OWNER");
+  const payload = await requireRole(req, "STAFF", "OWNER");
   const { spaceId } = await ctx.params;
+
+  const space = await prisma.space.findUnique({
+    where: { spaceId },
+    include: { business: { select: { ownerId: true } } },
+  });
+  if (!space) throw new ForbiddenError("FORBIDDEN", "Space not found");
+
+  const isOwner = space.business.ownerId === payload.userId;
+  if (!isOwner) {
+    const member = await prisma.staffMember.findFirst({
+      where: { userId: payload.userId, businessId: space.businessId },
+    });
+    if (!member) throw new ForbiddenError("FORBIDDEN", "Not your space");
+  }
+
   return ok(await getPricing(spaceId));
 });
 

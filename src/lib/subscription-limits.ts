@@ -107,3 +107,17 @@ export async function getAnalyticsCutoffDate(
   cutoff.setDate(cutoff.getDate() - sub.plan.analyticsDays);
   return cutoff;
 }
+
+export async function getOwnerAnalyticsConfig(businessId: number): Promise<{
+  cutoffDate: Date | null;
+  staffPerformanceEnabled: boolean;
+}> {
+  const sub = await getSubscriptionWithPlan(businessId);
+  const cutoffDate =
+    sub.plan.analyticsDays === null
+      ? null
+      : new Date(Date.now() - sub.plan.analyticsDays * 24 * 60 * 60 * 1000);
+  const features = sub.plan.features as Record<string, boolean>;
+  const staffPerformanceEnabled = features?.staffPerformance === true;
+  return { cutoffDate, staffPerformanceEnabled };
+}

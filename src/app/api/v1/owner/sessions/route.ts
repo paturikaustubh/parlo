@@ -26,6 +26,12 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   if (!business)
     throw new NotFoundError("BUSINESS_NOT_FOUND", "No business found");
 
+  const businessSpaces = await prisma.space.findMany({
+    where: { businessId: business.id },
+    select: { id: true },
+  });
+  const businessSpaceIds = businessSpaces.map((s) => s.id);
+
   let spaceDbId: number | undefined;
   const spaceId = q.get("spaceId");
   if (spaceId) {
@@ -33,11 +39,15 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       where: { spaceId },
       select: { id: true },
     });
-    spaceDbId = space?.id;
+    // Only use this space if it belongs to this business
+    if (space && businessSpaceIds.includes(space.id)) {
+      spaceDbId = space.id;
+    }
   }
 
   const result = await listSessions({
     spaceId: spaceDbId,
+    spaceIds: spaceDbId ? undefined : businessSpaceIds,
     status,
     search,
     from,
