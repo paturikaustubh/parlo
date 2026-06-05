@@ -61,7 +61,7 @@ model UserRole {
   userRoleId String    @unique @default(dbgenerated("gen_random_uuid()")) @map("user_role_id") @db.Uuid
   businessId Int?      @map("business_id")
   isActive   Boolean   @default(true) @map("is_active")
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   role       Role      @relation(fields: [roleId], references: [id])
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -209,7 +209,7 @@ model StaffMember {
   checkedInSessions  ParkingSession[]  @relation("CheckedInBy")
   checkedOutSessions ParkingSession[]  @relation("CheckedOutBy")
   business           Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  space              Space?            @relation(fields: [spaceId], references: [id])
+  space              Space?            @relation(fields: [spaceId], references: [id], onDelete: SetNull)
   user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   notes    StaffNote[]
@@ -246,7 +246,7 @@ model StaffFlag {
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   staffMember   StaffMember  @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
   business      Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  resolver      User?        @relation("FlagResolver", fields: [resolvedBy], references: [id], onDelete: NoAction)
+  resolver      User?        @relation("FlagResolver", fields: [resolvedBy], references: [id], onDelete: SetNull)
 
   @@map("staff_flags")
 }
@@ -280,7 +280,7 @@ model StaffRequest {
   reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz(6)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   business       Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  reviewer       User?     @relation("StaffReviewer", fields: [reviewedBy], references: [id], onDelete: NoAction)
+  reviewer       User?     @relation("StaffReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
   user           User      @relation("StaffRequester", fields: [userId], references: [id], onDelete: Cascade)
   space          Space?    @relation(fields: [spaceId], references: [id], onDelete: SetNull)
 
@@ -312,14 +312,14 @@ model ParkingSession {
   createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
   checkoutSessions    CheckoutRequestSession[]
-  checkedInBy         StaffMember?             @relation("CheckedInBy", fields: [checkedInByStaffId], references: [id], onDelete: NoAction)
-  checkedOutBy        StaffMember?             @relation("CheckedOutBy", fields: [checkedOutByStaffId], references: [id], onDelete: NoAction)
-  space               Space                    @relation(fields: [spaceId], references: [id], onDelete: NoAction)
-  user                User?                    @relation(fields: [userId], references: [id], onDelete: NoAction)
-  vehicle             Vehicle?                 @relation(fields: [vehicleId], references: [id], onDelete: NoAction)
+  checkedInBy         StaffMember?             @relation("CheckedInBy", fields: [checkedInByStaffId], references: [id], onDelete: SetNull)
+  checkedOutBy        StaffMember?             @relation("CheckedOutBy", fields: [checkedOutByStaffId], references: [id], onDelete: SetNull)
+  space               Space                    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user                User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  vehicle             Vehicle?                 @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   pricingVersionId         Int?                   @map("pricing_version_id")
-  pricingVersion           PricingFormulaVersion? @relation(fields: [pricingVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pricingVersion           PricingFormulaVersion? @relation(fields: [pricingVersionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([spaceId, status])
   @@index([userId, status])
@@ -345,9 +345,9 @@ model CheckoutRequest {
   createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
   sessions            CheckoutRequestSession[]
-  approver            StaffMember?             @relation("ApprovedBy", fields: [approvedBy], references: [id], onDelete: NoAction)
-  space               Space                    @relation(fields: [spaceId], references: [id], onDelete: NoAction)
-  user                User?                    @relation(fields: [userId], references: [id], onDelete: NoAction)
+  approver            StaffMember?             @relation("ApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
+  space               Space                    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user                User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([spaceId, status])
   @@index([userId])
@@ -383,9 +383,9 @@ model BusinessRegistration {
   resultBusinessId       Int?      @unique @map("result_business_id")
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  resultBusiness         Business? @relation("RegistrationResult", fields: [resultBusinessId], references: [id], onDelete: NoAction)
-  reviewer               User?     @relation("RegistrationReviewer", fields: [reviewedBy], references: [id], onDelete: NoAction)
-  submitter              User?     @relation("RegistrationSubmitter", fields: [submittedBy], references: [id], onDelete: NoAction)
+  resultBusiness         Business? @relation("RegistrationResult", fields: [resultBusinessId], references: [id], onDelete: SetNull)
+  reviewer               User?     @relation("RegistrationReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  submitter              User?     @relation("RegistrationSubmitter", fields: [submittedBy], references: [id], onDelete: SetNull)
   planId          Int?      @map("plan_id")
   billingCycle    String?   @map("billing_cycle") @db.VarChar(20)
   paymentProofUrl String?   @map("payment_proof_url")
@@ -518,7 +518,7 @@ model AuditEntry {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   actor      User     @relation(fields: [actorId], references: [id], onDelete: NoAction)
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  space      Space?   @relation(fields: [spaceId], references: [id], onDelete: NoAction)
+  space      Space?   @relation(fields: [spaceId], references: [id], onDelete: SetNull)
 
   @@index([businessId, createdAt])
   @@map("audit_entries")
