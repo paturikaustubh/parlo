@@ -229,25 +229,6 @@ export default function OwnerSessionsPage() {
     return () => observer.disconnect();
   }, [hasMore, isValidating, setSize]);
 
-  const totalRevenuePaise = sessions.reduce(
-    (sum, s) => sum + (s.amountPaise ?? 0),
-    0,
-  );
-  const activeCount = sessions.filter(
-    (s) => s.status === "ACTIVE" || s.status === "CHECKOUT_REQUESTED",
-  ).length;
-  const completedWithDuration = sessions.filter(
-    (s) => s.durationMinutes != null,
-  );
-  const avgDurationMins =
-    completedWithDuration.length > 0
-      ? Math.round(
-          completedWithDuration.reduce(
-            (sum, s) => sum + (s.durationMinutes ?? 0),
-            0,
-          ) / completedWithDuration.length,
-        )
-      : null;
   const grouped = groupSessionsByDate(sessions);
 
   const [highlightedDates, setHighlightedDates] = useState<Set<string>>(
@@ -359,49 +340,6 @@ export default function OwnerSessionsPage() {
         }}
         onRemove={(key) => setParams({ [key]: "" })}
       />
-
-      {/* Summary chips */}
-      {sessions.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {[
-            {
-              label: "Revenue",
-              value: formatAmount(totalRevenuePaise),
-              highlight: true,
-            },
-            {
-              label: "Avg duration",
-              value:
-                avgDurationMins != null ? formatDuration(avgDurationMins) : "—",
-            },
-            {
-              label: "Active now",
-              value: String(activeCount),
-              green: activeCount > 0,
-            },
-          ].map(({ label, value, highlight, green }) => (
-            <div
-              key={label}
-              className="bg-card border border-border rounded-lg px-3.5 py-2.5 flex flex-col gap-0.5"
-            >
-              <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
-                {label}
-              </span>
-              <span
-                className={`text-[15px] font-bold leading-none tabular-nums ${
-                  highlight
-                    ? "text-primary"
-                    : green
-                      ? "text-primary"
-                      : "text-foreground"
-                }`}
-              >
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* List */}
       {isLoading && !pages ? (

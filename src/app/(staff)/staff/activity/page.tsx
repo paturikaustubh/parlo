@@ -76,6 +76,7 @@ interface ActionedResponse {
   page: number;
   pageSize: number;
   lastPage: number;
+  totalRevenuePaise: number;
 }
 
 function ActivityInner() {
@@ -213,10 +214,7 @@ function ActivityInner() {
   const isLoadingMore = isValidating && !!pages;
   const grouped = groupByDate(sessions);
 
-  const totalRevenuePaise = sessions.reduce(
-    (sum, s) => sum + (s.amountPaise ?? 0),
-    0,
-  );
+  const totalRevenuePaise = pages?.[0]?.totalRevenuePaise ?? 0;
   const checkinCount = sessions.filter(
     (s) => s.actionType === "checkin" || s.actionType === "both",
   ).length;
@@ -322,18 +320,14 @@ function ActivityInner() {
         <div className="flex gap-2 flex-wrap">
           {[
             { label: "Sessions", value: String(total) },
-            {
-              label: "Check-ins",
-              value: String(checkinCount),
-              green: checkinCount > 0,
-            },
+            { label: "Check-ins", value: String(checkinCount) },
             { label: "Check-outs", value: String(checkoutCount) },
             {
               label: "Revenue",
               value: formatAmount(totalRevenuePaise),
               highlight: true,
             },
-          ].map(({ label, value, highlight, green }) => (
+          ].map(({ label, value, highlight }) => (
             <div
               key={label}
               className="bg-card border border-border rounded-lg px-3.5 py-2.5 flex flex-col gap-0.5"
@@ -342,13 +336,7 @@ function ActivityInner() {
                 {label}
               </span>
               <span
-                className={`text-[15px] font-bold leading-none tabular-nums ${
-                  highlight
-                    ? "text-primary"
-                    : green
-                      ? "text-primary"
-                      : "text-foreground"
-                }`}
+                className={`text-[15px] font-bold leading-none tabular-nums ${highlight ? "text-primary" : "text-foreground"}`}
               >
                 {value}
               </span>

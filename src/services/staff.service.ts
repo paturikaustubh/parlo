@@ -163,7 +163,7 @@ export async function getStaffActionedSessions(
     ...(searchOr ? { AND: [{ OR: searchOr }] } : {}),
   };
 
-  const [sessions, total] = await prisma.$transaction([
+  const [sessions, total, revenueAgg] = await prisma.$transaction([
     prisma.parkingSession.findMany({
       where,
       include: sessionInclude,
@@ -172,6 +172,7 @@ export async function getStaffActionedSessions(
       take: pageSize,
     }),
     prisma.parkingSession.count({ where }),
+    prisma.parkingSession.aggregate({ where, _sum: { amountPaise: true } }),
   ]);
 
   const now = Date.now();
@@ -211,6 +212,7 @@ export async function getStaffActionedSessions(
     page,
     pageSize,
     lastPage: Math.ceil(total / pageSize) || 1,
+    totalRevenuePaise: revenueAgg._sum.amountPaise ?? 0,
   };
 }
 
