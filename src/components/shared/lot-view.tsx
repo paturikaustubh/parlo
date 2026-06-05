@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { Input } from "@/components/ui/input";
 import { IconSearch, IconCar, IconX } from "@tabler/icons-react";
 import { ContactChip } from "@/components/shared/contact-chip";
@@ -26,6 +27,7 @@ function SessionCard({
   session: ParkingSession;
   now: number;
 }) {
+  const { use12 } = useTimeFormat();
   const duration = formatDuration(
     Math.max(
       0,
@@ -99,7 +101,7 @@ function SessionCard({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 text-xs min-w-0">
             <span className="text-muted-foreground">
-              {formatTime(session.checkedInAt)}
+              {formatTime(session.checkedInAt, use12)}
             </span>
             <span className="text-muted-foreground/40">·</span>
             <span className="font-medium text-foreground">{duration}</span>

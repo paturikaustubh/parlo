@@ -15,6 +15,7 @@ import {
   formatDuration,
   TYPE_TO_SHORT,
 } from "@/lib/vehicle-utils";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { SpaceFilterBanner } from "@/components/owner/space-filter-banner";
 import { type PricingRule } from "@/components/user/pricing-grid";
 import { SessionDetailSheet } from "@/components/shared/session-detail-sheet";
@@ -29,6 +30,7 @@ interface PagedSessions {
 }
 
 export default function OwnerSessionsPage() {
+  const { use12 } = useTimeFormat();
   const searchParams = useSearchParams();
   const spaceIdFromUrl = searchParams.get("space");
 
@@ -126,7 +128,7 @@ export default function OwnerSessionsPage() {
     return new Date(iso).toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
-      hour12: false,
+      hour12: use12,
     });
   }
 

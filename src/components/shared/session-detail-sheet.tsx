@@ -16,6 +16,7 @@ import {
   formatDuration,
   TYPE_TO_DISPLAY,
 } from "@/lib/vehicle-utils";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import type { ParkingSession } from "@/shared/types/entities";
 
 interface SessionDetailSheetProps {
@@ -51,6 +52,7 @@ export function SessionDetailSheet({
   pricingOverflowIntervalMinutes,
   pricingOverflowAmountPaise,
 }: SessionDetailSheetProps) {
+  const { use12 } = useTimeFormat();
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
@@ -119,7 +121,7 @@ export function SessionDetailSheet({
                       Check-in
                     </span>
                     <span className="text-xs text-muted-foreground tabular-nums">
-                      {formatTime(session.checkedInAt)}
+                      {formatTime(session.checkedInAt, use12)}
                     </span>
                     {session.checkedInByName && (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -144,7 +146,7 @@ export function SessionDetailSheet({
                     </span>
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {session.checkedOutAt
-                        ? formatTime(session.checkedOutAt)
+                        ? formatTime(session.checkedOutAt, use12)
                         : "—"}
                     </span>
                     {session.checkedOutByName && (

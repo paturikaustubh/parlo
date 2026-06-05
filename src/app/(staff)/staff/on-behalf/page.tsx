@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { clockTime } from "@/lib/time";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +58,7 @@ function formatDuration(minutes: number) {
 }
 
 export default function OnBehalfPage() {
+  const { use12 } = useTimeFormat();
   const { staffMember } = useStaff();
   const { isExpired } = useStaffExpiry();
   const [tab, setTab] = useState<Tab>("checkin");
@@ -394,12 +397,7 @@ export default function OnBehalfPage() {
 
                       {/* Check-in time */}
                       <p className="text-[11px] text-muted-foreground">
-                        Checked in{" "}
-                        {new Date(s.checkedInAt).toLocaleTimeString("en-IN", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: false,
-                        })}
+                        Checked in {clockTime(s.checkedInAt, use12)}
                         {(s.guestName || s.guestPhone) && (
                           <span>
                             {" · "}
@@ -493,8 +491,7 @@ export default function OnBehalfPage() {
                     );
                     const h = Math.floor(secs / 3600);
                     const m = Math.floor((secs % 3600) / 60);
-                    const fmt = (d: Date) =>
-                      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+                    const fmt = (d: Date) => clockTime(d.toISOString(), use12);
                     const dur = h > 0 ? `${h}h ${m}m` : `${m}m`;
                     return `${fmt(start)} → ${fmt(end)}  ·  ${dur}`;
                   })()}

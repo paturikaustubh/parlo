@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
+import { smartTime } from "@/lib/time";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import useSWR from "swr";
 import { pageFetcher } from "@/lib/swr-fetcher";
 import { usePaginationParams } from "@/lib/use-pagination-params";
@@ -106,19 +108,6 @@ function groupLabel(iso: string): string {
   });
 }
 
-function timeLabel(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return new Date(iso).toLocaleTimeString("en-IN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
 function contextChip(entry: AuditEntry): string {
   const m = entry.metadata as Record<string, unknown> | null;
   switch (entry.action) {
@@ -142,6 +131,7 @@ function contextChip(entry: AuditEntry): string {
 // ─── Inner page (needs useSearchParams) ──────────────────────────────────────
 
 function ActivityInner() {
+  const { use12 } = useTimeFormat();
   const { get, getInt, setParam } = usePaginationParams();
   const page = getInt("page", 1);
   const pageSize = getInt("pageSize", 30);
@@ -273,7 +263,7 @@ function ActivityInner() {
 
                         {/* Time */}
                         <span className="text-[10px] text-muted-foreground shrink-0 w-12 text-right">
-                          {timeLabel(entry.createdAt)}
+                          {smartTime(entry.createdAt, use12)}
                         </span>
                       </div>
                     );

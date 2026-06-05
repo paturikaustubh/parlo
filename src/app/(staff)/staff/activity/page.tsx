@@ -11,6 +11,7 @@ import { FilterDialog } from "@/components/shared/filter-dialog";
 import { ActiveFilterChips } from "@/components/shared/active-filter-chips";
 import { Input } from "@/components/ui/input";
 import { IconSearch } from "@tabler/icons-react";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import {
   formatTime,
   formatDuration,
@@ -62,11 +63,11 @@ const ACTION_CONFIG: Record<ActionType, { label: string; className: string }> =
     },
   };
 
-function getTimeDisplay(session: ParkingSession): string {
+function getTimeDisplay(session: ParkingSession, use12: boolean): string {
   if (!session.checkedOutAt) {
-    return `In: ${formatTime(session.checkedInAt)} · Active`;
+    return `In: ${formatTime(session.checkedInAt, use12)} · Active`;
   }
-  return `${formatTime(session.checkedInAt)} → ${formatTime(session.checkedOutAt)} · ${formatDuration(session.durationMinutes)}`;
+  return `${formatTime(session.checkedInAt, use12)} → ${formatTime(session.checkedOutAt, use12)} · ${formatDuration(session.durationMinutes)}`;
 }
 
 interface ActionedResponse {
@@ -78,6 +79,7 @@ interface ActionedResponse {
 }
 
 function ActivityInner() {
+  const { use12 } = useTimeFormat();
   const [selected, setSelected] = useState<ActionedSession | null>(null);
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
   const [pricingSince, setPricingSince] = useState<string | null>(null);
@@ -418,7 +420,7 @@ function ActivityInner() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   {group.map((s) => {
                     const config = ACTION_CONFIG[s.actionType];
-                    const timeDisplay = getTimeDisplay(s);
+                    const timeDisplay = getTimeDisplay(s, use12);
                     const amountNode =
                       s.status === "ACTIVE"
                         ? s.estimatedAmountPaise != null && (
