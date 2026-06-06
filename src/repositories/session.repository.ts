@@ -30,6 +30,8 @@ export function formatSession(
     overrideReason: s.overrideReason,
     checkedInByStaffId: null,
     checkedOutByStaffId: null,
+    requestCode:
+      (s as any).checkoutSessions?.[0]?.checkoutRequest?.requestCode ?? null,
     checkedInByName: (s as any).checkedInBy?.user?.name ?? null,
     checkedOutByName: (s as any).checkedOutBy?.user?.name ?? null,
     userName: (s as any).user?.name ?? null,
@@ -55,6 +57,13 @@ export const sessionInclude = {
       staffMemberId: true,
       user: { select: { name: true, phone: true } },
     },
+  },
+  checkoutSessions: {
+    include: {
+      checkoutRequest: { select: { requestCode: true, createdAt: true } },
+    },
+    orderBy: { checkoutRequest: { createdAt: "desc" as const } },
+    take: 1,
   },
 };
 
