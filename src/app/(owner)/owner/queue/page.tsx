@@ -3,8 +3,6 @@
 import { useState, useMemo } from "react";
 import { useEffect } from "react";
 import useSWR from "swr";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,8 +18,6 @@ import { IconListCheck, IconSearch, IconX } from "@tabler/icons-react";
 import { CheckoutRequestCard } from "@/components/shared/checkout-request-card";
 import { apiFetch } from "@/lib/api-client";
 import { pageFetcher } from "@/lib/swr-fetcher";
-import { usePaginationParams } from "@/lib/use-pagination-params";
-import { Pagination } from "@/components/shared/pagination";
 import { SpaceFilterBanner } from "@/components/owner/space-filter-banner";
 import type { CheckoutRequest, Space } from "@/shared/types/entities";
 import Fuse from "fuse.js";
@@ -50,11 +46,6 @@ const fuseOptions = {
 export default function OwnerQueuePage() {
   const searchParams = useSearchParams();
   const spaceIdFromUrl = searchParams.get("space");
-
-  const { get, getInt, setParam } = usePaginationParams();
-  const activeTab = get("tab", "pending");
-  const page = getInt("page", 1);
-  const pageSize = getInt("pageSize", 25);
 
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [actionTarget, setActionTarget] = useState<{
@@ -86,38 +77,16 @@ export default function OwnerQueuePage() {
       { refreshInterval: 10_000 },
     );
 
-  // All tab: SWR with pagination, only fetch when tab is active
-  const {
-    data: allData,
-    isLoading: allLoading,
-    mutate: mutateAll,
-  } = useSWR<PaginatedRequests>(
-    activeTab === "all"
-      ? [
-          "/checkout/requests",
-          { page, pageSize, spaceId: spaceIdFromUrl || undefined },
-        ]
-      : null,
-    pageFetcher,
-  );
-
   const pendingList = pendingData?.data ?? [];
-  const allList = allData?.data ?? [];
-  const lastPage = allData?.lastPage ?? 1;
 
   const fusePending = useMemo(
     () => new Fuse(pendingList, fuseOptions),
     [pendingList],
   );
-  const fuseAll = useMemo(() => new Fuse(allList, fuseOptions), [allList]);
 
   const filteredPending = query.trim()
     ? fusePending.search(query).map((r) => r.item)
     : pendingList;
-
-  const filteredAll = query.trim()
-    ? fuseAll.search(query).map((r) => r.item)
-    : allList;
 
   async function handleAction() {
     if (!actionTarget) return;
@@ -142,7 +111,6 @@ export default function OwnerQueuePage() {
       setActionTarget(null);
       setRejectNote("");
       mutatePending();
-      mutateAll();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Action failed.", "error");
     } finally {
@@ -182,115 +150,44 @@ export default function OwnerQueuePage() {
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setParam("tab", v)}>
-        <TabsList className="w-full">
-          <TabsTrigger value="pending" className="flex-1 text-xs">
-            Pending
-            {(query.trim() ? filteredPending : pendingList).length > 0 && (
-              <Badge className="ml-1.5 text-[9px] px-1.5 h-4 bg-primary/15 text-primary hover:bg-primary/15 border-0 font-bold">
-                {query.trim() ? filteredPending.length : pendingList.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="all" className="flex-1 text-xs">
-            All
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="pending" className="mt-4">
-          {!pendingData ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {[1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="h-32 rounded-xl bg-muted animate-pulse"
-                />
-              ))}
-            </div>
-          ) : filteredPending.length === 0 ? (
-            <div className="text-center py-16 space-y-2">
-              <IconListCheck
-                size={32}
-                className="text-muted-foreground mx-auto"
-              />
-              <p className="text-sm text-muted-foreground">
-                No pending requests
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {filteredPending.map((req) => (
-                <CheckoutRequestCard
-                  key={req.checkoutRequestId}
-                  req={req}
-                  onApprove={() =>
-                    setActionTarget({
-                      id: req.checkoutRequestId,
-                      type: "approve",
-                    })
-                  }
-                  onReject={() =>
-                    setActionTarget({
-                      id: req.checkoutRequestId,
-                      type: "reject",
-                    })
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="all" className="mt-4 space-y-4">
-          {allLoading && !allData ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-24 rounded-xl bg-muted animate-pulse"
-                />
-              ))}
-            </div>
-          ) : filteredAll.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No requests yet
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {filteredAll.map((req) => (
-                <CheckoutRequestCard
-                  key={req.checkoutRequestId}
-                  req={req}
-                  onApprove={() =>
-                    setActionTarget({
-                      id: req.checkoutRequestId,
-                      type: "approve",
-                    })
-                  }
-                  onReject={() =>
-                    setActionTarget({
-                      id: req.checkoutRequestId,
-                      type: "reject",
-                    })
-                  }
-                />
-              ))}
-            </div>
-          )}
-          {activeTab === "all" && (
-            <Pagination
-              className="mt-4"
-              page={page}
-              lastPage={lastPage}
-              pageSize={pageSize}
-              loading={allLoading}
-              onPageChange={(p) => setParam("page", p)}
-              onPageSizeChange={(s) => setParam("pageSize", s)}
-              onRefresh={() => mutateAll()}
+      <div className="mt-4">
+        {!pendingData ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : filteredPending.length === 0 ? (
+          <div className="text-center py-16 space-y-2">
+            <IconListCheck
+              size={32}
+              className="text-muted-foreground mx-auto"
             />
-          )}
-        </TabsContent>
-      </Tabs>
+            <p className="text-sm text-muted-foreground">No pending requests</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {filteredPending.map((req) => (
+              <CheckoutRequestCard
+                key={req.checkoutRequestId}
+                req={req}
+                onApprove={() =>
+                  setActionTarget({
+                    id: req.checkoutRequestId,
+                    type: "approve",
+                  })
+                }
+                onReject={() =>
+                  setActionTarget({
+                    id: req.checkoutRequestId,
+                    type: "reject",
+                  })
+                }
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Action dialog */}
       <Dialog
