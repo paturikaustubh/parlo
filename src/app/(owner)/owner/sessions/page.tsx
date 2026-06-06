@@ -17,6 +17,7 @@ import {
 } from "@/lib/vehicle-utils";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { SpaceFilterBanner } from "@/components/owner/space-filter-banner";
+import { ContactChip } from "@/components/shared/contact-chip";
 import { type PricingRule } from "@/components/user/pricing-grid";
 import { SessionDetailSheet } from "@/components/shared/session-detail-sheet";
 import type { ParkingSession, Space } from "@/shared/types/entities";
@@ -443,6 +444,12 @@ export default function OwnerSessionsPage() {
                             />
                             <span className="font-mono font-bold text-[15px] text-foreground truncate">
                               {s.vehicleNumber}
+                              {s.requestCode && (
+                                <span className="text-muted-foreground font-normal">
+                                  {" "}
+                                  · {s.requestCode}
+                                </span>
+                              )}
                             </span>
                           </div>
                           <span className="text-[11px] font-medium text-muted-foreground shrink-0">
@@ -453,9 +460,36 @@ export default function OwnerSessionsPage() {
                         {/* Space + time */}
                         <p className="text-[12px] text-muted-foreground">
                           {s.space.name} · {displayTime}
-                          {s.guestName && " · Guest"}
-                          {s.isOnBehalf && " · On-behalf"}
                         </p>
+
+                        {/* Staff + parker chips */}
+                        {(s.checkedInByName ||
+                          s.checkedOutByName ||
+                          s.userName ||
+                          s.guestName) && (
+                          <div className="flex items-center justify-between gap-2 mt-1">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {(s.checkedOutByName ?? s.checkedInByName) && (
+                                <ContactChip
+                                  name={
+                                    (s.checkedOutByName ?? s.checkedInByName)!
+                                  }
+                                  phone={
+                                    s.checkedOutByPhone ??
+                                    s.checkedInByPhone ??
+                                    undefined
+                                  }
+                                />
+                              )}
+                            </div>
+                            {(s.userName ?? s.guestName) && (
+                              <ContactChip
+                                name={(s.userName ?? s.guestName)!}
+                                phone={s.guestPhone ?? undefined}
+                              />
+                            )}
+                          </div>
+                        )}
 
                         {/* Duration + amount */}
                         <div className="flex items-center justify-between gap-2 mt-1.5">
