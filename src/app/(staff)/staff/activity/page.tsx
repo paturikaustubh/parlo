@@ -21,6 +21,7 @@ import {
 } from "@/lib/vehicle-utils";
 import type { ParkingSession } from "@/shared/types/entities";
 import { cn } from "@/lib/utils";
+import { ContactChip } from "@/components/shared/contact-chip";
 
 type ActionType = "checkin" | "checkout" | "both";
 
@@ -423,11 +424,16 @@ function ActivityInner() {
                           );
 
                     return (
-                      <button
+                      <div
                         key={`${s.parkingSessionId}-${s.actionType}`}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSelected(s)}
-                        className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors flex flex-col justify-between"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ")
+                            setSelected(s);
+                        }}
+                        className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors flex flex-col justify-between cursor-pointer"
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 truncate">
@@ -458,7 +464,45 @@ function ActivityInner() {
                             </span>
                           )}
                         </div>
-                      </button>
+
+                        {(s.checkedInByName ||
+                          s.checkedOutByName ||
+                          s.userName ||
+                          s.guestName) && (
+                          <div
+                            className="flex items-center justify-between gap-2 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {(s.checkedOutByName ?? s.checkedInByName) && (
+                                <>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">
+                                    by
+                                  </span>
+                                  <ContactChip
+                                    name={
+                                      (s.checkedOutByName ?? s.checkedInByName)!
+                                    }
+                                    phone={
+                                      s.checkedOutByPhone ??
+                                      s.checkedInByPhone ??
+                                      undefined
+                                    }
+                                    label="Staff"
+                                  />
+                                </>
+                              )}
+                            </div>
+                            {(s.userName ?? s.guestName) && (
+                              <ContactChip
+                                name={(s.userName ?? s.guestName)!}
+                                phone={s.userPhone ?? s.guestPhone ?? undefined}
+                                label="Parker"
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
