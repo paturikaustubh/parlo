@@ -426,11 +426,16 @@ export default function OwnerSessionsPage() {
                     );
 
                     return (
-                      <button
+                      <div
                         key={s.parkingSessionId}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSelected(s)}
-                        className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ")
+                            setSelected(s);
+                        }}
+                        className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors cursor-pointer"
                       >
                         {/* Header: plate ← → type */}
                         <div className="flex items-center justify-between gap-2 mb-1">
@@ -467,25 +472,35 @@ export default function OwnerSessionsPage() {
                           s.checkedOutByName ||
                           s.userName ||
                           s.guestName) && (
-                          <div className="flex items-center justify-between gap-2 mt-1">
+                          <div
+                            className="flex items-center justify-between gap-2 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <div className="flex items-center gap-1.5 min-w-0">
                               {(s.checkedOutByName ?? s.checkedInByName) && (
-                                <ContactChip
-                                  name={
-                                    (s.checkedOutByName ?? s.checkedInByName)!
-                                  }
-                                  phone={
-                                    s.checkedOutByPhone ??
-                                    s.checkedInByPhone ??
-                                    undefined
-                                  }
-                                />
+                                <>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">
+                                    by
+                                  </span>
+                                  <ContactChip
+                                    name={
+                                      (s.checkedOutByName ?? s.checkedInByName)!
+                                    }
+                                    phone={
+                                      s.checkedOutByPhone ??
+                                      s.checkedInByPhone ??
+                                      undefined
+                                    }
+                                    label="Staff"
+                                  />
+                                </>
                               )}
                             </div>
                             {(s.userName ?? s.guestName) && (
                               <ContactChip
                                 name={(s.userName ?? s.guestName)!}
-                                phone={s.guestPhone ?? undefined}
+                                phone={s.userPhone ?? s.guestPhone ?? undefined}
+                                label="Parker"
                               />
                             )}
                           </div>
@@ -500,7 +515,7 @@ export default function OwnerSessionsPage() {
                             {amount}
                           </span>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
