@@ -30,7 +30,8 @@ import {
 import { useUser } from "@/contexts/user-context";
 import { apiFetch } from "@/lib/api-client";
 import { ApplyStaffSheet } from "@/components/user/apply-staff-sheet";
-import { IconBriefcase } from "@tabler/icons-react";
+import { IconBriefcase, IconClock } from "@tabler/icons-react";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 interface StaffInvitation {
   invitationId: string;
@@ -44,6 +45,7 @@ interface StaffInvitation {
 export default function AccountPage() {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
+  const { use12, toggle: toggleTime } = useTimeFormat();
   const { user } = useUser();
   const [showPwDialog, setShowPwDialog] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -213,7 +215,7 @@ export default function AccountPage() {
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium px-1 mb-2">
           Preferences
         </p>
-        <div className="rounded-xl border border-border overflow-hidden bg-card">
+        <div className="rounded-xl border border-border overflow-hidden bg-card divide-y divide-border">
           <div className="flex items-center justify-between px-4 py-3.5">
             <label
               htmlFor="dark-mode-switch"
@@ -225,6 +227,22 @@ export default function AccountPage() {
               id="dark-mode-switch"
               checked={resolvedTheme === "dark"}
               onCheckedChange={(v) => setTheme(v ? "dark" : "light")}
+            />
+          </div>
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex items-center gap-2">
+              <IconClock size={15} className="text-muted-foreground" />
+              <label
+                htmlFor="time-format-switch"
+                className="text-sm font-medium text-foreground cursor-pointer"
+              >
+                12-hour time
+              </label>
+            </div>
+            <Switch
+              id="time-format-switch"
+              checked={use12}
+              onCheckedChange={toggleTime}
             />
           </div>
         </div>

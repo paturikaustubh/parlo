@@ -15,7 +15,9 @@ import {
   formatDuration,
   TYPE_TO_SHORT,
 } from "@/lib/vehicle-utils";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { SpaceFilterBanner } from "@/components/owner/space-filter-banner";
+import { ContactChip } from "@/components/shared/contact-chip";
 import { type PricingRule } from "@/components/user/pricing-grid";
 import { SessionDetailSheet } from "@/components/shared/session-detail-sheet";
 import type { ParkingSession, Space } from "@/shared/types/entities";
@@ -29,6 +31,7 @@ interface PagedSessions {
 }
 
 export default function OwnerSessionsPage() {
+  const { use12 } = useTimeFormat();
   const searchParams = useSearchParams();
   const spaceIdFromUrl = searchParams.get("space");
 
@@ -126,7 +129,7 @@ export default function OwnerSessionsPage() {
     return new Date(iso).toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
-      hour12: false,
+      hour12: use12,
     });
   }
 
@@ -227,25 +230,6 @@ export default function OwnerSessionsPage() {
     return () => observer.disconnect();
   }, [hasMore, isValidating, setSize]);
 
-  const totalRevenuePaise = sessions.reduce(
-    (sum, s) => sum + (s.amountPaise ?? 0),
-    0,
-  );
-  const activeCount = sessions.filter(
-    (s) => s.status === "ACTIVE" || s.status === "CHECKOUT_REQUESTED",
-  ).length;
-  const completedWithDuration = sessions.filter(
-    (s) => s.durationMinutes != null,
-  );
-  const avgDurationMins =
-    completedWithDuration.length > 0
-      ? Math.round(
-          completedWithDuration.reduce(
-            (sum, s) => sum + (s.durationMinutes ?? 0),
-            0,
-          ) / completedWithDuration.length,
-        )
-      : null;
   const grouped = groupSessionsByDate(sessions);
 
   const [highlightedDates, setHighlightedDates] = useState<Set<string>>(
@@ -358,49 +342,6 @@ export default function OwnerSessionsPage() {
         onRemove={(key) => setParams({ [key]: "" })}
       />
 
-      {/* Summary chips */}
-      {sessions.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {[
-            {
-              label: "Revenue",
-              value: formatAmount(totalRevenuePaise),
-              highlight: true,
-            },
-            {
-              label: "Avg duration",
-              value:
-                avgDurationMins != null ? formatDuration(avgDurationMins) : "—",
-            },
-            {
-              label: "Active now",
-              value: String(activeCount),
-              green: activeCount > 0,
-            },
-          ].map(({ label, value, highlight, green }) => (
-            <div
-              key={label}
-              className="bg-card border border-border rounded-lg px-3.5 py-2.5 flex flex-col gap-0.5"
-            >
-              <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
-                {label}
-              </span>
-              <span
-                className={`text-[15px] font-bold leading-none tabular-nums ${
-                  highlight
-                    ? "text-primary"
-                    : green
-                      ? "text-primary"
-                      : "text-foreground"
-                }`}
-              >
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* List */}
       {isLoading && !pages ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -485,11 +426,16 @@ export default function OwnerSessionsPage() {
                     );
 
                     return (
-                      <button
+                      <div
                         key={s.parkingSessionId}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSelected(s)}
-                        className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ")
+                            setSelected(s);
+                        }}
+                        className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors cursor-pointer"
                       >
                         {/* Header: plate ← → type */}
                         <div className="flex items-center justify-between gap-2 mb-1">
@@ -503,6 +449,12 @@ export default function OwnerSessionsPage() {
                             />
                             <span className="font-mono font-bold text-[15px] text-foreground truncate">
                               {s.vehicleNumber}
+                              {s.requestCode && (
+                                <span className="text-muted-foreground font-normal">
+                                  {" "}
+                                  · {s.requestCode}
+                                </span>
+                              )}
                             </span>
                           </div>
                           <span className="text-[11px] font-medium text-muted-foreground shrink-0">
@@ -513,9 +465,46 @@ export default function OwnerSessionsPage() {
                         {/* Space + time */}
                         <p className="text-[12px] text-muted-foreground">
                           {s.space.name} · {displayTime}
-                          {s.guestName && " · Guest"}
-                          {s.isOnBehalf && " · On-behalf"}
                         </p>
+
+                        {/* Staff + parker chips */}
+                        {(s.checkedInByName ||
+                          s.checkedOutByName ||
+                          s.userName ||
+                          s.guestName) && (
+                          <div
+                            className="flex items-center justify-between gap-2 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {(s.checkedOutByName ?? s.checkedInByName) && (
+                                <>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">
+                                    by
+                                  </span>
+                                  <ContactChip
+                                    name={
+                                      (s.checkedOutByName ?? s.checkedInByName)!
+                                    }
+                                    phone={
+                                      s.checkedOutByPhone ??
+                                      s.checkedInByPhone ??
+                                      undefined
+                                    }
+                                    label="Staff"
+                                  />
+                                </>
+                              )}
+                            </div>
+                            {(s.userName ?? s.guestName) && (
+                              <ContactChip
+                                name={(s.userName ?? s.guestName)!}
+                                phone={s.userPhone ?? s.guestPhone ?? undefined}
+                                label="Parker"
+                              />
+                            )}
+                          </div>
+                        )}
 
                         {/* Duration + amount */}
                         <div className="flex items-center justify-between gap-2 mt-1.5">
@@ -526,7 +515,7 @@ export default function OwnerSessionsPage() {
                             {amount}
                           </span>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

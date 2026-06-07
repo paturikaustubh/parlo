@@ -82,10 +82,11 @@ export function formatDate(iso: string): string {
   });
 }
 
-/** ISO timestamp → "10:30 AM" */
-export function formatTime(iso: string): string {
+/** ISO timestamp → "10:30 AM" or "21:38" depending on use12 */
+export function formatTime(iso: string, use12 = true): string {
   return new Date(iso).toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: use12,
   });
 }

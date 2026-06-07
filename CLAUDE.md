@@ -21,6 +21,10 @@ Examples of when to push back:
 - Adding state only to React when URL sync is the correct pattern
 - Removing `total` from an API response when it carries information `lastPage` doesn't
 
+## Commits
+
+- No `Co-Authored-By` lines in any commit message — ever.
+
 ## Code quality non-negotiables
 
 - No security vulnerabilities (XSS, SQL injection, command injection, etc.)

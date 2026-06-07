@@ -13,10 +13,13 @@ import {
   IconLogout,
   IconMoon,
   IconSun,
+  IconClock,
 } from "@tabler/icons-react";
+import { useTimeFormat } from "@/hooks/use-time-format";
 
 export default function OwnerSettingsPage() {
   const { theme, setTheme } = useTheme();
+  const { use12, toggle } = useTimeFormat();
   const { user } = useUser();
   const router = useRouter();
 
@@ -72,7 +75,7 @@ export default function OwnerSettingsPage() {
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
           Preferences
         </p>
-        <div className="rounded-xl border border-border overflow-hidden bg-card">
+        <div className="rounded-xl border border-border overflow-hidden bg-card divide-y divide-border">
           <div className="flex items-center justify-between px-4 py-3.5">
             <div className="flex items-center gap-2">
               {theme === "dark" ? (
@@ -91,6 +94,22 @@ export default function OwnerSettingsPage() {
               id="owner-dark-switch"
               checked={theme === "dark"}
               onCheckedChange={(v) => setTheme(v ? "dark" : "light")}
+            />
+          </div>
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex items-center gap-2">
+              <IconClock size={16} className="text-muted-foreground" />
+              <label
+                htmlFor="owner-time-switch"
+                className="text-sm font-medium text-foreground cursor-pointer"
+              >
+                12-hour time
+              </label>
+            </div>
+            <Switch
+              id="owner-time-switch"
+              checked={use12}
+              onCheckedChange={toggle}
             />
           </div>
         </div>

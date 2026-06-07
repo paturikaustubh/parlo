@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Switch } from "@/components/ui/switch";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { showToast } from "@/components/ui/toast";
-import { IconFlag } from "@tabler/icons-react";
+import { IconFlag, IconClock } from "@tabler/icons-react";
 import { apiFetch } from "@/lib/api-client";
 import { useStaff } from "@/contexts/staff-context";
 import { cn } from "@/lib/utils";
@@ -60,6 +62,7 @@ function formatDate(iso: string) {
 }
 
 export default function StaffProfilePage() {
+  const { use12, toggle } = useTimeFormat();
   const { staffMember } = useStaff();
   const [tab, setTab] = useState<Tab>("notes");
   const [notes, setNotes] = useState<StaffNote[]>([]);
@@ -311,6 +314,31 @@ export default function StaffProfilePage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Preferences */}
+      <section className="space-y-1">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+          Preferences
+        </p>
+        <div className="rounded-xl border border-border overflow-hidden bg-card">
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div className="flex items-center gap-2">
+              <IconClock size={15} className="text-muted-foreground" />
+              <label
+                htmlFor="staff-time-switch"
+                className="text-sm font-medium text-foreground cursor-pointer"
+              >
+                12-hour time
+              </label>
+            </div>
+            <Switch
+              id="staff-time-switch"
+              checked={use12}
+              onCheckedChange={toggle}
+            />
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

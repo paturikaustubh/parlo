@@ -116,6 +116,7 @@ export interface ParkingSession {
   userPhone: string | null;
   checkedInByPhone: string | null;
   checkedOutByPhone: string | null;
+  requestCode: string | null;
   createdAt: string;
 }
 

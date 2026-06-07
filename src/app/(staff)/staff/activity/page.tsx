@@ -11,6 +11,7 @@ import { FilterDialog } from "@/components/shared/filter-dialog";
 import { ActiveFilterChips } from "@/components/shared/active-filter-chips";
 import { Input } from "@/components/ui/input";
 import { IconSearch } from "@tabler/icons-react";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import {
   formatTime,
   formatDuration,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/vehicle-utils";
 import type { ParkingSession } from "@/shared/types/entities";
 import { cn } from "@/lib/utils";
+import { ContactChip } from "@/components/shared/contact-chip";
 
 type ActionType = "checkin" | "checkout" | "both";
 
@@ -62,11 +64,11 @@ const ACTION_CONFIG: Record<ActionType, { label: string; className: string }> =
     },
   };
 
-function getTimeDisplay(session: ParkingSession): string {
+function getTimeDisplay(session: ParkingSession, use12: boolean): string {
   if (!session.checkedOutAt) {
-    return `In: ${formatTime(session.checkedInAt)} · Active`;
+    return `In: ${formatTime(session.checkedInAt, use12)} · Active`;
   }
-  return `${formatTime(session.checkedInAt)} → ${formatTime(session.checkedOutAt)} · ${formatDuration(session.durationMinutes)}`;
+  return `${formatTime(session.checkedInAt, use12)} → ${formatTime(session.checkedOutAt, use12)} · ${formatDuration(session.durationMinutes)}`;
 }
 
 interface ActionedResponse {
@@ -75,9 +77,11 @@ interface ActionedResponse {
   page: number;
   pageSize: number;
   lastPage: number;
+  totalRevenuePaise: number;
 }
 
 function ActivityInner() {
+  const { use12 } = useTimeFormat();
   const [selected, setSelected] = useState<ActionedSession | null>(null);
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
   const [pricingSince, setPricingSince] = useState<string | null>(null);
@@ -211,10 +215,7 @@ function ActivityInner() {
   const isLoadingMore = isValidating && !!pages;
   const grouped = groupByDate(sessions);
 
-  const totalRevenuePaise = sessions.reduce(
-    (sum, s) => sum + (s.amountPaise ?? 0),
-    0,
-  );
+  const totalRevenuePaise = pages?.[0]?.totalRevenuePaise ?? 0;
   const checkinCount = sessions.filter(
     (s) => s.actionType === "checkin" || s.actionType === "both",
   ).length;
@@ -320,18 +321,14 @@ function ActivityInner() {
         <div className="flex gap-2 flex-wrap">
           {[
             { label: "Sessions", value: String(total) },
-            {
-              label: "Check-ins",
-              value: String(checkinCount),
-              green: checkinCount > 0,
-            },
+            { label: "Check-ins", value: String(checkinCount) },
             { label: "Check-outs", value: String(checkoutCount) },
             {
               label: "Revenue",
               value: formatAmount(totalRevenuePaise),
               highlight: true,
             },
-          ].map(({ label, value, highlight, green }) => (
+          ].map(({ label, value, highlight }) => (
             <div
               key={label}
               className="bg-card border border-border rounded-lg px-3.5 py-2.5 flex flex-col gap-0.5"
@@ -340,13 +337,7 @@ function ActivityInner() {
                 {label}
               </span>
               <span
-                className={`text-[15px] font-bold leading-none tabular-nums ${
-                  highlight
-                    ? "text-primary"
-                    : green
-                      ? "text-primary"
-                      : "text-foreground"
-                }`}
+                className={`text-[15px] font-bold leading-none tabular-nums ${highlight ? "text-primary" : "text-foreground"}`}
               >
                 {value}
               </span>
@@ -418,7 +409,7 @@ function ActivityInner() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   {group.map((s) => {
                     const config = ACTION_CONFIG[s.actionType];
-                    const timeDisplay = getTimeDisplay(s);
+                    const timeDisplay = getTimeDisplay(s, use12);
                     const amountNode =
                       s.status === "ACTIVE"
                         ? s.estimatedAmountPaise != null && (
@@ -433,11 +424,16 @@ function ActivityInner() {
                           );
 
                     return (
-                      <button
+                      <div
                         key={`${s.parkingSessionId}-${s.actionType}`}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSelected(s)}
-                        className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors flex flex-col justify-between"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ")
+                            setSelected(s);
+                        }}
+                        className="text-left rounded-xl border border-border bg-card px-3.5 pt-3 pb-3.5 hover:border-primary/30 transition-colors flex flex-col justify-between cursor-pointer"
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 truncate">
@@ -468,7 +464,45 @@ function ActivityInner() {
                             </span>
                           )}
                         </div>
-                      </button>
+
+                        {(s.checkedInByName ||
+                          s.checkedOutByName ||
+                          s.userName ||
+                          s.guestName) && (
+                          <div
+                            className="flex items-center justify-between gap-2 mt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {(s.checkedOutByName ?? s.checkedInByName) && (
+                                <>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">
+                                    by
+                                  </span>
+                                  <ContactChip
+                                    name={
+                                      (s.checkedOutByName ?? s.checkedInByName)!
+                                    }
+                                    phone={
+                                      s.checkedOutByPhone ??
+                                      s.checkedInByPhone ??
+                                      undefined
+                                    }
+                                    label="Staff"
+                                  />
+                                </>
+                              )}
+                            </div>
+                            {(s.userName ?? s.guestName) && (
+                              <ContactChip
+                                name={(s.userName ?? s.guestName)!}
+                                phone={s.userPhone ?? s.guestPhone ?? undefined}
+                                label="Parker"
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

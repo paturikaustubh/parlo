@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { smartTime, clockTime } from "@/lib/time";
+import { useTimeFormat } from "@/hooks/use-time-format";
 import { Card, CardContent } from "@/components/ui/card";
 import { showToast } from "@/components/ui/toast";
 import { IconMapPin, IconArrowUp, IconArrowDown } from "@tabler/icons-react";
@@ -28,16 +30,9 @@ interface ActivityItem {
   timestamp: string;
 }
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  return `${Math.floor(mins / 60)}h ago`;
-}
-
 export default function StaffDashboard() {
   const { staffMember, setStaffMember } = useStaff();
+  const { use12 } = useTimeFormat();
   const { isExpired } = useStaffExpiry();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
@@ -119,11 +114,7 @@ export default function StaffDashboard() {
           </p>
           {metrics?.isOnDuty && metrics.dutyStartedAt && (
             <p className="text-xs text-muted-foreground">
-              Since{" "}
-              {new Date(metrics.dutyStartedAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              Since {clockTime(metrics.dutyStartedAt, use12)}
               {" · "}
               {metrics.shiftHoursToday.toFixed(1)}h
             </p>
@@ -219,7 +210,7 @@ export default function StaffDashboard() {
                     </div>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {timeAgo(item.timestamp)}
+                    {smartTime(item.timestamp, use12)}
                   </span>
                 </div>
               ))}

@@ -16,6 +16,8 @@ import type { VehicleType } from "@/shared/types/enums";
 import { PriceBreakdownDialog } from "@/components/user/price-breakdown-dialog";
 import { ContactChip } from "@/components/shared/contact-chip";
 import { formatAmount } from "@/lib/vehicle-utils";
+import { useTimeFormat } from "@/hooks/use-time-format";
+import { clockTime } from "@/lib/time";
 
 interface CheckoutRequestCardProps {
   req: CheckoutRequest;
@@ -41,8 +43,8 @@ const MONTHS = [
   "Dec",
 ];
 
-function fmtTime(d: Date) {
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+function fmtTime(d: Date, use12: boolean) {
+  return clockTime(d.toISOString(), use12);
 }
 function fmtShortDate(d: Date) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
@@ -59,6 +61,7 @@ function fmtElapsed(secs: number) {
 function compactDuration(
   checkedInAt: string,
   now: number,
+  use12: boolean,
   checkedOutAt?: string | null,
 ): string {
   const start = new Date(checkedInAt);
@@ -69,9 +72,11 @@ function compactDuration(
   );
   const sameDay = start.toDateString() === end.toDateString();
   const s = sameDay
-    ? fmtTime(start)
-    : `${fmtShortDate(start)}, ${fmtTime(start)}`;
-  const e = sameDay ? fmtTime(end) : `${fmtShortDate(end)}, ${fmtTime(end)}`;
+    ? fmtTime(start, use12)
+    : `${fmtShortDate(start)}, ${fmtTime(start, use12)}`;
+  const e = sameDay
+    ? fmtTime(end, use12)
+    : `${fmtShortDate(end)}, ${fmtTime(end, use12)}`;
   return `${s} → ${e}  ·  ${fmtElapsed(secs)}`;
 }
 
@@ -87,6 +92,7 @@ export function CheckoutRequestCard({
   acting,
   selfUserId,
 }: CheckoutRequestCardProps) {
+  const { use12 } = useTimeFormat();
   const [breakdownSession, setBreakdownSession] = useState<
     CheckoutRequest["sessions"][number] | null
   >(null);
@@ -200,7 +206,7 @@ export function CheckoutRequestCard({
                 </div>
                 {/* Duration — own line, muted */}
                 <p className="text-xs text-muted-foreground tabular-nums">
-                  {compactDuration(s.checkedInAt, now, s.checkedOutAt)}
+                  {compactDuration(s.checkedInAt, now, use12, s.checkedOutAt)}
                 </p>
               </div>
             ))}
