@@ -6,12 +6,12 @@ import type { AuthPayload } from "@/types/auth";
 export const TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60; // 365 days
 
 /** Generate a cryptographically random 64-char hex token */
-export function generateToken(): string {
+function generateToken(): string {
   return randomBytes(32).toString("hex");
 }
 
 /** SHA-256 hash of the raw token — this is what gets stored in DB */
-export function hashToken(token: string): string {
+function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 

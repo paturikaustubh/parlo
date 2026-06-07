@@ -30,48 +30,6 @@ export async function setDutyStatus(userId: number, isOnDuty: boolean) {
   };
 }
 
-export async function getStaffMetrics(userId: number, date: string) {
-  const member = await findStaffByUserId(userId);
-  if (!member) throw new NotFoundError("NOT_FOUND", "Staff profile not found");
-
-  const dayStart = new Date(date);
-  const dayEnd = new Date(date);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-
-  const [checkInsToday, checkOutsToday, currentlyParked] =
-    await prisma.$transaction([
-      prisma.parkingSession.count({
-        where: {
-          checkedInByStaffId: member.id,
-          checkedInAt: { gte: dayStart, lt: dayEnd },
-        },
-      }),
-      prisma.parkingSession.count({
-        where: {
-          checkedOutByStaffId: member.id,
-          checkedOutAt: { gte: dayStart, lt: dayEnd },
-        },
-      }),
-      prisma.parkingSession.count({
-        where: { spaceId: member.spaceId ?? undefined, status: "ACTIVE" },
-      }),
-    ]);
-
-  const shiftHoursToday =
-    member.isOnDuty && member.dutyStartedAt
-      ? (Date.now() - member.dutyStartedAt.getTime()) / 3600000
-      : 0;
-
-  return {
-    currentlyParked,
-    checkInsToday,
-    checkOutsToday,
-    isOnDuty: member.isOnDuty,
-    dutyStartedAt: member.dutyStartedAt?.toISOString() ?? null,
-    shiftHoursToday: Math.round(shiftHoursToday * 10) / 10,
-  };
-}
-
 export async function getStaffActivity(userId: number) {
   const member = await findStaffByUserId(userId);
   if (!member) throw new NotFoundError("NOT_FOUND", "Staff profile not found");

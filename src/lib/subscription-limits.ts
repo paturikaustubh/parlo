@@ -98,16 +98,6 @@ export async function assertBusinessSubscriptionActive(businessId: number) {
   assertStatusActive(sub);
 }
 
-export async function getAnalyticsCutoffDate(
-  businessId: number,
-): Promise<Date | null> {
-  const sub = await getSubscriptionWithPlan(businessId);
-  if (sub.plan.analyticsDays === null) return null; // unlimited
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - sub.plan.analyticsDays);
-  return cutoff;
-}
-
 export async function getOwnerAnalyticsConfig(businessId: number): Promise<{
   cutoffDate: Date | null;
   staffPerformanceEnabled: boolean;

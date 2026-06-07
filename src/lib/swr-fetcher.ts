@@ -1,6 +1,6 @@
 import { apiFetch } from "./api-client";
 
-export function buildParams(obj?: Record<string, unknown>): string {
+function buildParams(obj?: Record<string, unknown>): string {
   if (!obj) return "";
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(obj)) {

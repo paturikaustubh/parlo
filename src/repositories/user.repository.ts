@@ -80,7 +80,3 @@ export async function createUser(data: {
 export async function updateUser(id: number, data: { name?: string }) {
   return prisma.user.update({ where: { id }, data });
 }
-
-export async function updatePassword(id: number, passwordHash: string) {
-  return prisma.user.update({ where: { id }, data: { passwordHash } });
-}

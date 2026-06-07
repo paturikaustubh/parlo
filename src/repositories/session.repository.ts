@@ -74,13 +74,6 @@ export async function findSessionById(parkingSessionId: string) {
   });
 }
 
-export async function findSessionByDbId(id: number) {
-  return prisma.parkingSession.findUnique({
-    where: { id },
-    include: sessionInclude,
-  });
-}
-
 export async function listSessions(filters: {
   userId?: number;
   spaceId?: number;

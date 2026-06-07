@@ -114,62 +114,6 @@ export async function checkIn(data: {
   return enrichSession(s);
 }
 
-export async function staffOnBehalfCheckIn(data: {
-  spaceId: string;
-  name: string;
-  phone: string;
-  vehicleType: VehicleType;
-  vehicleNumber: string;
-  staffDbId: number;
-}): Promise<{ session: ParkingSession; tokenId: string }> {
-  const space = await prisma.space.findUnique({
-    where: { spaceId: data.spaceId },
-    select: { id: true, businessId: true, currentPricingVersionId: true },
-  });
-  if (!space) throw new NotFoundError("NOT_FOUND", "Space not found");
-
-  const tokenId = randomBytes(4).toString("hex").toUpperCase();
-
-  const s = await createSession({
-    spaceId: space.id,
-    vehicleNumber: data.vehicleNumber.toUpperCase(),
-    vehicleType: data.vehicleType,
-    guestName: data.name,
-    guestPhone: data.phone,
-    tokenId,
-    isOnBehalf: true,
-    checkedInByStaffId: data.staffDbId,
-    pricingVersionId: space.currentPricingVersionId ?? undefined,
-  });
-
-  // Audit entry (fire-and-forget)
-  if (space) {
-    prisma.staffMember
-      .findUnique({ where: { id: data.staffDbId }, select: { userId: true } })
-      .then(
-        (sm) =>
-          sm &&
-          prisma.auditEntry.create({
-            data: {
-              businessId: space.businessId,
-              spaceId: space.id,
-              actorId: sm.userId,
-              action: "CHECK_IN",
-              entityType: "PARKING_SESSION",
-              entityId: s.parkingSessionId,
-              metadata: {
-                vehicleNumber: data.vehicleNumber,
-                guestName: data.name,
-              },
-            },
-          }),
-      )
-      .catch(() => {});
-  }
-
-  return { session: enrichSession(s), tokenId };
-}
-
 export async function getSession(
   parkingSessionId: string,
   requesterId?: number,
